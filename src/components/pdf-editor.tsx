@@ -3,12 +3,13 @@
 import { useState, useRef, useCallback, ChangeEvent } from 'react';
 import { PDFDocument, rgb } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
+import JSZip from 'jszip';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -229,7 +230,7 @@ export function PdfEditor() {
 
       if (context) {
         await page.render({ canvasContext: context, viewport }).promise;
-        const imageUrl = canvas.toDataURL('image/jpeg', 0.7);
+        const imageUrl = canvas.toDataURL('image/png'); // Use PNG for better quality in previews
         setPages((prev) =>
           prev.map((p) => (p.id === pageId ? { ...p, image: imageUrl } : p))
         );
@@ -288,19 +289,19 @@ export function PdfEditor() {
           const pageToAdd = newPdf.addPage();
           
           let image;
-          if (page.imageType === 'image/png') {
-              const pngImage = await newPdf.embedPng(imageBytesCopy);
-              if (quality !== undefined) {
+          // For compression, we always work with JPEGs for now.
+          if (quality !== undefined) {
+              if (page.imageType === 'image/png') {
+                  const pngImage = await newPdf.embedPng(imageBytesCopy);
                   image = await newPdf.embedJpg(await pngImage.asJpg({quality}));
               } else {
-                  image = pngImage;
-              }
-
-          } else { // Assumes jpeg or similar
-              if (quality !== undefined) {
                   image = await newPdf.embedJpg(imageBytesCopy, {quality});
+              }
+          } else { // No compression, use original format
+              if (page.imageType === 'image/png') {
+                image = await newPdf.embedPng(imageBytesCopy);
               } else {
-                  image = await newPdf.embedJpg(imageBytesCopy);
+                image = await newPdf.embedJpg(imageBytesCopy);
               }
           }
           
@@ -321,6 +322,7 @@ export function PdfEditor() {
         if(page.pdfSourceIndex < 0 || page.pdfSourceIndex >= sourcePdfDocs.length) continue;
         const sourcePdf = sourcePdfDocs[page.pdfSourceIndex];
         if(sourcePdf) {
+          // TODO: This doesn't apply compression to existing PDF pages with images.
           const [copiedPage] = await newPdf.copyPages(sourcePdf, [page.originalIndex]);
           newPdf.addPage(copiedPage);
         }
@@ -431,6 +433,60 @@ export function PdfEditor() {
     }
   };
 
+  const handleDownloadAsImages = async () => {
+    if (pages.length === 0) return;
+
+    setIsDownloading(true);
+    toast({ title: 'Preparing images...', description: 'This may take a moment.' });
+    try {
+        const zip = new JSZip();
+        for (let i = 0; i < pages.length; i++) {
+            const page = pages[i];
+            let imageDataUrl = page.image;
+
+            if (!imageDataUrl) {
+                // Render page if not already rendered
+                await renderPage(page.id);
+                // Need to get updated page object
+                imageDataUrl = (pages.find(p => p.id === page.id) || page).image;
+            }
+
+            if (page.isNew) {
+              const canvas = document.createElement('canvas');
+              canvas.width = 595; // A4-ish width
+              canvas.height = 842; // A4-ish height
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                imageDataUrl = canvas.toDataURL('image/png');
+              }
+            }
+            
+            if (imageDataUrl) {
+                const response = await fetch(imageDataUrl);
+                const blob = await response.blob();
+                zip.file(`page_${i + 1}.png`, blob);
+            }
+        }
+
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(zipBlob);
+        const newFileName = pdfSources[0]?.file.name.replace(/\.pdf$/i, '_images.zip') ?? 'images.zip';
+        link.download = newFileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast({ title: 'Download Started', description: `Your images are downloading as "${newFileName}".` });
+    } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Failed to Generate Images', description: 'An error occurred while creating your image files.' });
+    } finally {
+        setIsDownloading(false);
+    }
+  };
+
   const handleReset = () => {
     setPdfSources([]);
     setPages([]);
@@ -527,7 +583,7 @@ export function PdfEditor() {
               <div className="flex items-center rounded-md border">
                 <Button onClick={handleDownload} disabled={isDownloading} variant="ghost" className="border-r rounded-r-none">
                   {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
-                  Download
+                  Download PDF
                 </Button>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="rounded-l-none" disabled={isDownloading}>
@@ -536,8 +592,12 @@ export function PdfEditor() {
                 </DropdownMenuTrigger>
               </div>
               <DropdownMenuContent align="end" className="w-80" onClick={(e) => e.preventDefault()}>
-                <DropdownMenuLabel>Compression Settings</DropdownMenuLabel>
+                <DropdownMenuItem onClick={handleDownloadAsImages} disabled={isDownloading}>
+                    <Image className="mr-2 h-4 w-4" />
+                    <span>Download as Images (.zip)</span>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuLabel>Compression Settings</DropdownMenuLabel>
                 <div className="p-2 space-y-4">
                   <div className="flex items-center justify-between space-x-2">
                       <Label htmlFor="compression-switch" className="flex flex-col space-y-1">
