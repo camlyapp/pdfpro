@@ -9,15 +9,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Switch } from './ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
+import { Textarea } from './ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from './ui/dropdown-menu';
 import { imageToSvg } from '@/ai/flows/image-to-svg';
+import { extractStructuredData } from '@/ai/flows/extract-structured-data';
 
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -58,6 +61,9 @@ export function PdfEditor() {
   const [isCompressing, setIsCompressing] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
   const [isConvertingToSvg, setIsConvertingToSvg] = useState(false);
+  const [isExtractingData, setIsExtractingData] = useState(false);
+  const [extractedData, setExtractedData] = useState('');
+  const [ocrPrompt, setOcrPrompt] = useState('Extract the invoice number, date, and total amount.');
   const [enableCompression, setEnableCompression] = useState(false);
   const [targetSize, setTargetSize] = useState<number>(1);
   const [targetUnit, setTargetUnit] = useState<'MB' | 'KB'>('MB');
@@ -558,6 +564,58 @@ export function PdfEditor() {
     if(fileInputRef.current) fileInputRef.current.value = '';
   }
 
+  const handleExtractData = async () => {
+    if (pages.length === 0) return;
+    
+    setIsExtractingData(true);
+    setExtractedData('');
+    toast({ title: 'Extracting data...', description: 'This may take a moment.' });
+    
+    try {
+        const firstPage = pages[0];
+        let dataUri = firstPage.image;
+
+        if (!dataUri) {
+            await renderPage(firstPage.id);
+            // We need to get the updated page data with the image URI
+            dataUri = (pages.find(p => p.id === firstPage.id) || firstPage).image;
+        }
+
+        if (!dataUri) {
+            const pageData = pages[0];
+            const source = pdfSources[pageData.pdfSourceIndex];
+            if (!source) throw new Error("PDF source not found for the first page.");
+
+            const page = await source.pdfjsDoc.getPage(pageData.originalIndex + 1);
+            const viewport = page.getViewport({ scale: 2.0 });
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            if (context) {
+                await page.render({ canvasContext: context, viewport }).promise;
+                dataUri = canvas.toDataURL('image/png');
+            } else {
+                throw new Error("Could not get canvas context.");
+            }
+        }
+        
+        const result = await extractStructuredData({ photoDataUri: dataUri, prompt: ocrPrompt });
+        setExtractedData(result);
+        toast({ title: 'Data Extracted Successfully' });
+    } catch (error) {
+        console.error("Error extracting structured data:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Error Extracting Data',
+            description: 'Could not extract structured data from the first page.',
+        });
+    } finally {
+        setIsExtractingData(false);
+    }
+  };
+
   if (isLoading && pdfSources.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-96">
@@ -647,7 +705,61 @@ export function PdfEditor() {
                 {isMerging ? <Loader2 className="animate-spin" /> : <Combine />}
                 Merge PDF
             </Button>
-            
+
+            <Dialog>
+                <DialogTrigger asChild>
+                    <Button variant="outline">
+                        <BrainCircuit /> Extract Data (OCR)
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Extract Structured Data (Advanced OCR)</DialogTitle>
+                        <DialogDescription>
+                            Describe the data you want to extract from the first page of the PDF. The AI will return it as a JSON object.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="ocr-prompt">Extraction Prompt</Label>
+                            <Textarea
+                                id="ocr-prompt"
+                                value={ocrPrompt}
+                                onChange={(e) => setOcrPrompt(e.target.value)}
+                                placeholder="e.g., Extract the invoice number, date, and a list of items with their prices."
+                                className="min-h-[80px]"
+                            />
+                        </div>
+                        {extractedData && (
+                            <div className="grid gap-2">
+                                <Label>Extracted Data</Label>
+                                <div className="relative">
+                                    <pre className="p-4 bg-muted rounded-md text-sm max-h-64 overflow-auto">
+                                        <code>{extractedData}</code>
+                                    </pre>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute top-2 right-2 h-7 w-7"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(extractedData);
+                                            toast({ title: 'Copied to clipboard!' });
+                                        }}
+                                    >
+                                        <Copy />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button onClick={handleExtractData} disabled={isExtractingData}>
+                            {isExtractingData ? <Loader2 className="animate-spin" /> : <><BrainCircuit className="mr-2" /> Extract Data</>}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <DropdownMenu>
               <div className="flex items-center rounded-md border">
                 <Button onClick={handleDownload} disabled={isDownloading} variant="ghost" className="border-r rounded-r-none">
