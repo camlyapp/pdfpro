@@ -72,7 +72,7 @@ const ToolCard = ({ icon, title, onClick, disabled = false }: { icon: React.Reac
     <button
         onClick={onClick}
         disabled={disabled}
-        className="flex flex-col items-center justify-center p-4 bg-card rounded-lg shadow-sm hover:shadow-primary/20 transition-all aspect-square border border-transparent hover:border-primary disabled:opacity-50 disabled:pointer-events-none"
+        className="flex flex-col items-center justify-center p-4 bg-card rounded-lg shadow-md hover:shadow-primary/20 transition-all aspect-square border hover:border-primary disabled:opacity-50 disabled:pointer-events-none"
     >
         <div className="p-3 bg-primary/10 rounded-full mb-3">
             {icon}
@@ -1378,7 +1378,7 @@ const handleDownloadAsWord = async () => {
         console.error("Error extracting structured data:", error);
         toast({
             variant: 'destructive',
-            title: 'Error Extracting Data',
+            title: 'Error Extacting Data',
             description: 'Could not extract structured data from the first page.',
         });
     } finally {
@@ -1515,6 +1515,11 @@ const handleDownloadAsWord = async () => {
                      <ToolCard
                         icon={<Lock className="h-8 w-8 text-primary" />}
                         title="Protect PDF"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                     <ToolCard
+                        icon={<Unlock className="h-8 w-8 text-primary" />}
+                        title="Unlock PDF"
                         onClick={() => fileInputRef.current?.click()}
                     />
                     <ToolCard
@@ -1910,5 +1915,3 @@ const handleDownloadAsWord = async () => {
     </div>
   );
 }
-
-    
