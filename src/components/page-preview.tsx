@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { GripVertical, Trash2, Sparkles, Loader2, Info, File, ZoomIn } from 'lucide-react';
+import { GripVertical, Trash2, Sparkles, Loader2, Info, File, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
@@ -34,6 +34,7 @@ interface PagePreviewProps {
 
 export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible, onImageScaleChange }: PagePreviewProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -73,6 +74,11 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible, 
         <Skeleton className="w-full h-full" />
       </div>
     );
+  };
+  
+  const handleScaleChange = (scale: number) => {
+    const newScale = Math.max(0.1, Math.min(scale, 2)); // Clamp between 0.1 and 2
+    onImageScaleChange(page.id, newScale);
   };
 
   return (
@@ -116,7 +122,7 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible, 
         )}
 
         {page.isFromImage && (
-          <Popover>
+          <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
             <PopoverTrigger asChild>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -127,7 +133,7 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible, 
                     <TooltipContent>Resize Image</TooltipContent>
                 </Tooltip>
             </PopoverTrigger>
-            <PopoverContent className="w-56" align="end">
+            <PopoverContent className="w-64" align="end">
                 <div className="grid gap-4">
                     <div className="space-y-2">
                         <h4 className="font-medium leading-none">Image Scale</h4>
@@ -143,9 +149,25 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible, 
                             min={0.1}
                             max={2}
                             step={0.05}
-                            defaultValue={[page.imageScale ?? 1]}
-                            onValueChange={(value) => onImageScaleChange(page.id, value[0])}
+                            value={[page.imageScale ?? 1]}
+                            onValueChange={(value) => handleScaleChange(value[0])}
                         />
+                        <div className="flex justify-between items-center">
+                            <Button variant="outline" size="icon" onClick={() => handleScaleChange((page.imageScale ?? 1) - 0.1)}>
+                                <ZoomOut className="h-4 w-4" />
+                            </Button>
+                             <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" onClick={() => handleScaleChange(1)}>
+                                        <RotateCcw className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Reset Scale</TooltipContent>
+                            </Tooltip>
+                            <Button variant="outline" size="icon" onClick={() => handleScaleChange((page.imageScale ?? 1) + 0.1)}>
+                                <ZoomIn className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </PopoverContent>
