@@ -11,9 +11,10 @@ import { PagePreview } from '@/components/page-preview';
 import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
-import { Slider } from './ui/slider';
+import { Input } from './ui/input';
 import { Switch } from './ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
@@ -52,7 +53,8 @@ export function PdfEditor() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
   const [enableCompression, setEnableCompression] = useState(false);
-  const [targetFileSize, setTargetFileSize] = useState(1); // in MB
+  const [targetSize, setTargetSize] = useState<number>(1);
+  const [targetUnit, setTargetUnit] = useState<'MB' | 'KB'>('MB');
   const [compressionPopoverOpen, setCompressionPopoverOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -318,7 +320,8 @@ export function PdfEditor() {
         toast({ title: 'Compressing PDF...', description: 'This may take a moment.' });
         let quality = 0.8; // Start with decent quality
         pdfBytes = await generatePdfBytes(quality);
-        const targetBytes = targetFileSize * 1024 * 1024;
+        
+        const targetBytes = targetUnit === 'MB' ? targetSize * 1024 * 1024 : targetSize * 1024;
 
         // Iteratively reduce quality to meet target size.
         // This is a simplified approach. A more advanced one might use a binary search for quality.
@@ -327,10 +330,12 @@ export function PdfEditor() {
           pdfBytes = await generatePdfBytes(quality);
         }
 
+        const finalSizeMB = (pdfBytes.length / 1024 / 1024).toFixed(2);
+
         if (pdfBytes.length > targetBytes) {
-          toast({ variant: 'destructive', title: 'Compression Limit Reached', description: `Could not compress to below ${targetFileSize} MB. Final size is ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.` });
+          toast({ variant: 'destructive', title: 'Compression Limit Reached', description: `Could not compress to below ${targetSize} ${targetUnit}. Final size is ${finalSizeMB} MB.` });
         } else {
-          toast({ title: 'Compression Successful', description: `Final size is ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.` });
+          toast({ title: 'Compression Successful', description: `Final size is ${finalSizeMB} MB.` });
         }
       } else {
         pdfBytes = await generatePdfBytes();
@@ -472,18 +477,26 @@ export function PdfEditor() {
                             </div>
                             {enableCompression && (
                                 <div className='space-y-4 pt-4'>
-                                    <div className="flex justify-between items-center">
-                                        <Label htmlFor="target-size">Target Size (MB)</Label>
-                                        <span className="text-sm font-medium">{targetFileSize} MB</span>
+                                    <Label htmlFor="target-size">Target File Size</Label>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            id="target-size"
+                                            type="number"
+                                            value={targetSize}
+                                            onChange={(e) => setTargetSize(Math.max(0, parseFloat(e.target.value)))}
+                                            className="w-2/3"
+                                            min="0"
+                                        />
+                                        <Select value={targetUnit} onValueChange={(value: 'MB' | 'KB') => setTargetUnit(value)}>
+                                            <SelectTrigger className="w-1/3">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="MB">MB</SelectItem>
+                                                <SelectItem value="KB">KB</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
-                                    <Slider
-                                        id="target-size"
-                                        min={0.5}
-                                        max={10}
-                                        step={0.5}
-                                        value={[targetFileSize]}
-                                        onValueChange={(value) => setTargetFileSize(value[0])}
-                                    />
                                 </div>
                             )}
                         </div>
