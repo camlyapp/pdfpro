@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -102,6 +102,8 @@ export function PdfEditor() {
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.5);
   const [watermarkRotation, setWatermarkRotation] = useState(-45);
   const [watermarkFontSize, setWatermarkFontSize] = useState(50);
+  const [enableEncryption, setEnableEncryption] = useState(false);
+  const [encryptionPassword, setEncryptionPassword] = useState('');
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -813,12 +815,22 @@ export function PdfEditor() {
             });
         }
     }
-
-
+    
+    const saveOptions: any = {};
     if (enableCompression) {
-        return newPdf.save({ useObjectStreams: false });
+        saveOptions.useObjectStreams = false;
     }
-    return newPdf.save();
+
+    if (enableEncryption && encryptionPassword) {
+      saveOptions.userPassword = encryptionPassword;
+      saveOptions.permissions = {
+        printing: true,
+        copying: true,
+      };
+    }
+
+
+    return newPdf.save(saveOptions);
   }
   
   const handleCompress = async () => {
@@ -883,6 +895,11 @@ export function PdfEditor() {
 
   const handleDownloadPdf = async () => {
     if (pages.length === 0) return;
+
+    if (enableEncryption && !encryptionPassword) {
+      toast({ variant: 'destructive', title: 'Password Required', description: 'Please enter a password to encrypt the PDF.' });
+      return;
+    }
 
     setIsDownloading(true);
     try {
@@ -1490,10 +1507,11 @@ const handleDownloadAsWord = async () => {
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-96">
                       <Tabs defaultValue="format" className="w-full">
-                          <TabsList className="grid w-full grid-cols-3">
+                          <TabsList className="grid w-full grid-cols-4">
                               <TabsTrigger value="format">Format</TabsTrigger>
                               <TabsTrigger value="compress" disabled={downloadFormat !== 'pdf'}>Compress</TabsTrigger>
                               <TabsTrigger value="watermark" disabled={downloadFormat !== 'pdf'}>Watermark</TabsTrigger>
+                              <TabsTrigger value="encrypt" disabled={downloadFormat !== 'pdf'}>Encrypt</TabsTrigger>
                           </TabsList>
                           <TabsContent value="format">
                               <div className="py-4">
@@ -1623,7 +1641,32 @@ const handleDownloadAsWord = async () => {
                                         </div>
                                     )}
                                 </div>
-                            </TabsContent>
+                          </TabsContent>
+                          <TabsContent value="encrypt">
+                              <div className="py-4 space-y-4">
+                                  <div className="flex items-center justify-between space-x-2">
+                                      <Label htmlFor="encryption-switch" className="flex flex-col space-y-1">
+                                          <span>Enable Encryption</span>
+                                          <span className="font-normal leading-snug text-muted-foreground text-xs">
+                                              Protect your PDF with a password.
+                                          </span>
+                                      </Label>
+                                      <Switch id="encryption-switch" checked={enableEncryption} onCheckedChange={setEnableEncryption} />
+                                  </div>
+                                  {enableEncryption && (
+                                      <div className='space-y-2 pt-2'>
+                                          <Label htmlFor="encryption-password">Password</Label>
+                                          <Input
+                                              id="encryption-password"
+                                              type="password"
+                                              value={encryptionPassword}
+                                              onChange={(e) => setEncryptionPassword(e.target.value)}
+                                              placeholder="Enter password"
+                                          />
+                                      </div>
+                                  )}
+                              </div>
+                          </TabsContent>
                       </Tabs>
                   </PopoverContent>
               </Popover>
