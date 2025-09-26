@@ -253,7 +253,7 @@ export function PdfEditor() {
     return (
       <Card className="max-w-xl mx-auto text-center shadow-lg">
         <CardHeader>
-          <CardTitle className="text-2xl font-headline">Welcome to PDF Live</CardTitle>
+          <CardTitle className="text-2xl font-headline">Welcome to PDFPro</CardTitle>
           <CardDescription>Upload, reorder, delete, merge, and download pages from your PDF with a live preview.</CardDescription>
         </CardHeader>
         <CardContent>
