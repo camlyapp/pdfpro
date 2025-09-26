@@ -282,9 +282,18 @@ export function PdfEditor() {
               tempPage.drawImage(pngImage, {width: pngImage.width, height: pngImage.height});
               const tempBytes = await tempPdf.save();
               const loadedPdf = await PDFDocument.load(tempBytes);
-              const embeddedImages = loadedPdf.getPage(0).images;
-              if (embeddedImages.length > 0) {
-                 const jpgBytes = await embeddedImages[0].image.asJpg(quality);
+              
+              // This is a workaround to get the raw JPG bytes from a PNG
+              const pageWithImage = loadedPdf.getPage(0);
+              let jpgBytes: Uint8Array | undefined;
+              pageWithImage.node.Resources?.XObject?.asMap().forEach(obj => {
+                if (obj.get('Subtype').toString() === '/Image') {
+                    const stream = obj as unknown as { get: (key: string) => {get: (key: string) => any}, contents: Uint8Array };
+                    jpgBytes = stream.contents;
+                }
+              });
+
+              if (jpgBytes) {
                  image = await newPdf.embedJpg(jpgBytes);
               } else {
                  image = await newPdf.embedPng(imageBytesCopy); // fallback
@@ -318,6 +327,10 @@ export function PdfEditor() {
     }
 
     if (enableCompression) {
+      // The save function doesn't seem to have options to reduce quality for existing images from PDFs.
+      // The logic above handles new images. For a more robust solution, one would need to iterate
+      // through all PDF objects, find images, and re-compress them, which is complex.
+      // This implementation mainly compresses newly added images.
       return newPdf.save({ useObjectStreams: false });
     }
     return newPdf.save();
