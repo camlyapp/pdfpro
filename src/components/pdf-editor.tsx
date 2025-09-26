@@ -222,22 +222,24 @@ export function PdfEditor() {
     setIsConvertingToSvg(true);
     toast({ title: 'Converting to SVG...', description: 'This might take a moment.' });
     try {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const dataUri = e.target?.result as string;
-            const svgContent = await imageToSvg({ photoDataUri: dataUri, prompt: '' });
-            
-            const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            const newFileName = file.name.replace(/\.[^/.]+$/, '_converted.svg');
-            link.download = newFileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            toast({ title: 'SVG Conversion Successful', description: `Your new file "${newFileName}" is downloading.` });
-        };
-        reader.readAsDataURL(file);
+        const dataUri = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.onerror = (e) => reject(e);
+            reader.readAsDataURL(file);
+        });
+
+        const svgContent = await imageToSvg({ photoDataUri: dataUri, prompt: '' });
+        
+        const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        const newFileName = file.name.replace(/\.[^/.]+$/, '_converted.svg');
+        link.download = newFileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast({ title: 'SVG Conversion Successful', description: `Your new file "${newFileName}" is downloading.` });
     } catch (error) {
         console.error(error);
         toast({
