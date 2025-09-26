@@ -6,13 +6,17 @@ import * as pdfjsLib from 'pdfjs-dist';
 import JSZip from 'jszip';
 import pptxgen from 'pptxgenjs';
 import * as XLSX from 'xlsx';
+import mammoth from 'mammoth';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -81,6 +85,7 @@ export function PdfEditor() {
   const [isExtractingData, setIsExtractingData] = useState(false);
   const [isConvertingExcel, setIsConvertingExcel] = useState(false);
   const [isConvertingPptx, setIsConvertingPptx] = useState(false);
+  const [isConvertingWord, setIsConvertingWord] = useState(false);
   const [isSplitting, setIsSplitting] = useState(false);
   const [isScanDialogOpen, setIsScanDialogOpen] = useState(false);
   const [extractedData, setExtractedData] = useState('');
@@ -98,6 +103,7 @@ export function PdfEditor() {
   const imageToSvgInputRef = useRef<HTMLInputElement>(null);
   const excelFileInputRef = useRef<HTMLInputElement>(null);
   const pptxFileInputRef = useRef<HTMLInputElement>(null);
+  const wordFileInputRef = useRef<HTMLInputElement>(null);
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
   const { toast } = useToast();
@@ -499,6 +505,87 @@ export function PdfEditor() {
     } finally {
       setIsConvertingPptx(false);
       if (event.target) event.target.value = '';
+    }
+  };
+
+  const handleWordFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = [
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+
+    if (!validTypes.includes(file.type)) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid File',
+            description: 'Please select a valid Word file (.docx).',
+        });
+        return;
+    }
+
+    setIsConvertingWord(true);
+    toast({ title: 'Converting Word to PDF...', description: 'This may take a moment.' });
+
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const { value: html } = await mammoth.convertToHtml({ arrayBuffer });
+
+        const tempContainer = document.createElement('div');
+        tempContainer.innerHTML = html;
+        tempContainer.style.width = '210mm'; // A4 width
+        tempContainer.style.padding = '15mm';
+        tempContainer.style.boxSizing = 'border-box';
+        document.body.appendChild(tempContainer);
+        
+        const canvas = await html2canvas(tempContainer, {
+            scale: 2, // Higher scale for better quality
+            useCORS: true,
+        });
+        
+        document.body.removeChild(tempContainer);
+
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const ratio = canvasWidth / canvasHeight;
+        
+        const imgWidth = pdfWidth;
+        const imgHeight = imgWidth / ratio;
+        
+        let heightLeft = imgHeight;
+        let position = 0;
+        
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pdfHeight;
+        }
+
+        const pdfBytes = pdf.output('arraybuffer');
+        const pdfFile = new File([pdfBytes], file.name.replace(/\.docx$/, '.pdf'), { type: 'application/pdf' });
+
+        await processAndSetPdf(pdfFile, 0);
+
+        toast({ title: 'Word converted to PDF successfully!' });
+    } catch (error) {
+        console.error("Error converting Word to PDF:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Conversion Failed',
+            description: 'There was an error converting the Word file to PDF.',
+        });
+    } finally {
+        setIsConvertingWord(false);
+        if (event.target) event.target.value = '';
     }
   };
 
@@ -1157,12 +1244,17 @@ export function PdfEditor() {
                         {isConvertingPptx ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Presentation className="mr-2 h-6 w-6" />}
                         PowerPoint to PDF
                     </Button>
+                    <Button size="lg" variant="outline" onClick={() => wordFileInputRef.current?.click()} className="text-lg py-6 px-8" disabled={isConvertingWord}>
+                        {isConvertingWord ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <FileText className="mr-2 h-6 w-6" />}
+                        Word to PDF
+                    </Button>
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
                 <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
                 <input type="file" ref={imageToSvgInputRef} onChange={handleImageToSvg} accept="image/*" className="hidden" />
                 <input type="file" ref={excelFileInputRef} onChange={handleExcelFileChange} accept=".xlsx, .xls" className="hidden" />
                 <input type="file" ref={pptxFileInputRef} onChange={handlePptxFileChange} accept=".pptx" className="hidden" />
+                <input type="file" ref={wordFileInputRef} onChange={handleWordFileChange} accept=".docx" className="hidden" />
             </CardContent>
         </Card>
 
