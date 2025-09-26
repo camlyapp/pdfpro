@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, ChangeEvent } from 'react';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import JSZip from 'jszip';
 import pptxgen from 'pptxgenjs';
@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { ScrollArea, ScrollBar } from './ui/scroll-area';
 import { ScanDocument } from './scan-document';
+import { Slider } from './ui/slider';
 
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -96,6 +97,11 @@ export function PdfEditor() {
   const [targetUnit, setTargetUnit] = useState<'MB' | 'KB'>('MB');
   const [compressedPdfBytes, setCompressedPdfBytes] = useState<Uint8Array | null>(null);
   const [downloadFormat, setDownloadFormat] = useState<DownloadFormat>('pdf');
+  const [enableWatermark, setEnableWatermark] = useState(false);
+  const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL');
+  const [watermarkOpacity, setWatermarkOpacity] = useState(0.5);
+  const [watermarkRotation, setWatermarkRotation] = useState(-45);
+  const [watermarkFontSize, setWatermarkFontSize] = useState(50);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -741,6 +747,8 @@ export function PdfEditor() {
       pdfSources.map(source => PDFDocument.load(source.arrayBufferForPdfLib.slice(0)))
     ) : [];
 
+    const font = await newPdf.embedFont(StandardFonts.Helvetica);
+
     for (const page of pages) {
       if (page.isNew) {
         newPdf.addPage();
@@ -787,6 +795,25 @@ export function PdfEditor() {
         }
       }
     }
+    
+    if (enableWatermark && watermarkText) {
+        const pagesToWatermark = newPdf.getPages();
+        for (const page of pagesToWatermark) {
+            const { width, height } = page.getSize();
+            page.drawText(watermarkText, {
+                x: width / 2,
+                y: height / 2,
+                font,
+                size: watermarkFontSize,
+                color: rgb(0, 0, 0),
+                opacity: watermarkOpacity,
+                rotate: degrees(watermarkRotation),
+                xSkew: degrees(15),
+                ySkew: degrees(15),
+            });
+        }
+    }
+
 
     if (enableCompression) {
         return newPdf.save({ useObjectStreams: false });
@@ -1463,9 +1490,10 @@ const handleDownloadAsWord = async () => {
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-96">
                       <Tabs defaultValue="format" className="w-full">
-                          <TabsList className="grid w-full grid-cols-2">
+                          <TabsList className="grid w-full grid-cols-3">
                               <TabsTrigger value="format">Format</TabsTrigger>
                               <TabsTrigger value="compress" disabled={downloadFormat !== 'pdf'}>Compress</TabsTrigger>
+                              <TabsTrigger value="watermark" disabled={downloadFormat !== 'pdf'}>Watermark</TabsTrigger>
                           </TabsList>
                           <TabsContent value="format">
                               <div className="py-4">
@@ -1544,6 +1572,58 @@ const handleDownloadAsWord = async () => {
                                   )}
                               </div>
                           </TabsContent>
+                          <TabsContent value="watermark">
+                                <div className="py-4 space-y-4">
+                                    <div className="flex items-center justify-between space-x-2">
+                                        <Label htmlFor="watermark-switch" className="flex flex-col space-y-1">
+                                            <span>Enable Watermark</span>
+                                            <span className="font-normal leading-snug text-muted-foreground text-xs">
+                                                Add a text watermark to each page of the PDF.
+                                            </span>
+                                        </Label>
+                                        <Switch id="watermark-switch" checked={enableWatermark} onCheckedChange={setEnableWatermark} />
+                                    </div>
+                                    {enableWatermark && (
+                                        <div className='space-y-4 pt-2'>
+                                            <div className='space-y-2'>
+                                                <Label htmlFor="watermark-text">Watermark Text</Label>
+                                                <Input
+                                                    id="watermark-text"
+                                                    value={watermarkText}
+                                                    onChange={(e) => setWatermarkText(e.target.value)}
+                                                />
+                                            </div>
+                                            <div className='space-y-2'>
+                                                <Label htmlFor="watermark-size">Font Size: {watermarkFontSize}px</Label>
+                                                <Slider
+                                                    id="watermark-size"
+                                                    min={10} max={200} step={5}
+                                                    value={[watermarkFontSize]}
+                                                    onValueChange={(v) => setWatermarkFontSize(v[0])}
+                                                />
+                                            </div>
+                                            <div className='space-y-2'>
+                                                <Label htmlFor="watermark-rotation">Rotation: {watermarkRotation}°</Label>
+                                                <Slider
+                                                    id="watermark-rotation"
+                                                    min={-90} max={90} step={5}
+                                                    value={[watermarkRotation]}
+                                                    onValueChange={(v) => setWatermarkRotation(v[0])}
+                                                />
+                                            </div>
+                                             <div className='space-y-2'>
+                                                <Label htmlFor="watermark-opacity">Opacity: {Math.round(watermarkOpacity * 100)}%</Label>
+                                                <Slider
+                                                    id="watermark-opacity"
+                                                    min={0.1} max={1} step={0.1}
+                                                    value={[watermarkOpacity]}
+                                                    onValueChange={(v) => setWatermarkOpacity(v[0])}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </TabsContent>
                       </Tabs>
                   </PopoverContent>
               </Popover>
