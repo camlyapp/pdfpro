@@ -16,7 +16,7 @@ import { Input } from './ui/input';
 import { Switch } from './ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from './ui/dropdown-menu';
 
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -289,15 +289,15 @@ export function PdfEditor() {
           const pageToAdd = newPdf.addPage();
           
           let image;
-          // For compression, we always work with JPEGs for now.
           if (quality !== undefined) {
-              if (page.imageType === 'image/png') {
-                  const pngImage = await newPdf.embedPng(imageBytesCopy);
-                  image = await newPdf.embedJpg(await pngImage.asJpg({quality}));
-              } else {
-                  image = await newPdf.embedJpg(imageBytesCopy, {quality});
-              }
-          } else { // No compression, use original format
+              const tempDoc = await PDFDocument.create();
+              const tempImage = page.imageType === 'image/png' 
+                  ? await tempDoc.embedPng(imageBytesCopy)
+                  : await tempDoc.embedJpg(imageBytesCopy);
+
+              const jpgBytes = await tempImage.asJpg({ quality });
+              image = await newPdf.embedJpg(jpgBytes);
+          } else {
               if (page.imageType === 'image/png') {
                 image = await newPdf.embedPng(imageBytesCopy);
               } else {
@@ -322,7 +322,6 @@ export function PdfEditor() {
         if(page.pdfSourceIndex < 0 || page.pdfSourceIndex >= sourcePdfDocs.length) continue;
         const sourcePdf = sourcePdfDocs[page.pdfSourceIndex];
         if(sourcePdf) {
-          // TODO: This doesn't apply compression to existing PDF pages with images.
           const [copiedPage] = await newPdf.copyPages(sourcePdf, [page.originalIndex]);
           newPdf.addPage(copiedPage);
         }
@@ -349,7 +348,6 @@ export function PdfEditor() {
       let bestPdfBytes: Uint8Array | null = null;
       let iterations = 0;
 
-      // check if there are any images to compress
       const hasImages = pages.some(p => p.isFromImage);
       if (!hasImages) {
         const finalBytes = await generatePdfBytes();
@@ -433,7 +431,7 @@ export function PdfEditor() {
     }
   };
 
-  const handleDownloadAsImages = async () => {
+  const handleDownloadAsImages = async (format: 'png' | 'jpeg') => {
     if (pages.length === 0) return;
 
     setIsDownloading(true);
@@ -444,36 +442,55 @@ export function PdfEditor() {
             const page = pages[i];
             let imageDataUrl = page.image;
 
-            if (!imageDataUrl) {
-                // Render page if not already rendered
-                await renderPage(page.id);
-                // Need to get updated page object
-                imageDataUrl = (pages.find(p => p.id === page.id) || page).image;
-            }
+            // Prepare canvas for rendering
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
 
-            if (page.isNew) {
-              const canvas = document.createElement('canvas');
-              canvas.width = 595; // A4-ish width
-              canvas.height = 842; // A4-ish height
-              const ctx = canvas.getContext('2d');
-              if (ctx) {
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                imageDataUrl = canvas.toDataURL('image/png');
-              }
+            if (!imageDataUrl || !page.isFromImage) {
+                 // Render non-image or non-rendered pages
+                const pdfPage = page.isNew ? null : await pdfSources[page.pdfSourceIndex].pdfjsDoc.getPage(page.originalIndex + 1);
+                
+                if (pdfPage) {
+                    const viewport = pdfPage.getViewport({ scale: 2.0 }); // Higher scale for better quality
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    if (context) {
+                        await pdfPage.render({ canvasContext: context, viewport }).promise;
+                    }
+                } else { // Blank page
+                    canvas.width = 595 * 2;
+                    canvas.height = 842 * 2;
+                    if (context) {
+                        context.fillStyle = 'white';
+                        context.fillRect(0, 0, canvas.width, canvas.height);
+                    }
+                }
+            } else {
+                // For pages from images, just draw them on canvas to convert format
+                const img = new (window as any).Image();
+                await new Promise(resolve => {
+                    img.onload = resolve;
+                    img.src = imageDataUrl!;
+                });
+                canvas.width = img.width;
+                canvas.height = img.height;
+                context?.drawImage(img, 0, 0);
             }
             
+            const mimeType = `image/${format}`;
+            imageDataUrl = canvas.toDataURL(mimeType, format === 'jpeg' ? 0.9 : undefined);
+
             if (imageDataUrl) {
                 const response = await fetch(imageDataUrl);
                 const blob = await response.blob();
-                zip.file(`page_${i + 1}.png`, blob);
+                zip.file(`page_${i + 1}.${format}`, blob);
             }
         }
 
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(zipBlob);
-        const newFileName = pdfSources[0]?.file.name.replace(/\.pdf$/i, '_images.zip') ?? 'images.zip';
+        const newFileName = pdfSources[0]?.file.name.replace(/\.pdf$/i, `_images_${format}.zip`) ?? `images_${format}.zip`;
         link.download = newFileName;
         document.body.appendChild(link);
         link.click();
@@ -592,10 +609,21 @@ export function PdfEditor() {
                 </DropdownMenuTrigger>
               </div>
               <DropdownMenuContent align="end" className="w-80" onClick={(e) => e.preventDefault()}>
-                <DropdownMenuItem onClick={handleDownloadAsImages} disabled={isDownloading}>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
                     <Image className="mr-2 h-4 w-4" />
-                    <span>Download as Images (.zip)</span>
-                </DropdownMenuItem>
+                    <span>Download as...</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={() => handleDownloadAsImages('png')} disabled={isDownloading}>
+                      <span>PNG images (.zip)</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDownloadAsImages('jpeg')} disabled={isDownloading}>
+                      <span>JPEG images (.zip)</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Compression Settings</DropdownMenuLabel>
                 <div className="p-2 space-y-4">
