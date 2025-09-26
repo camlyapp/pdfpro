@@ -271,7 +271,7 @@ export function PdfEditor() {
     try {
       const newPdf = await PDFDocument.create();
       const sourcePdfDocs = pdfSources.length > 0 ? await Promise.all(
-        pdfSources.map(source => PDFDocument.load(source.arrayBuffer))
+        pdfSources.map(source => PDFDocument.load(source.arrayBuffer.slice(0)))
       ) : [];
 
       for (const page of pages) {
