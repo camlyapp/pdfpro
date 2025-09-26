@@ -56,26 +56,26 @@ export function Header() {
             </div>
           </PopoverTrigger>
           <PopoverContent
-            className="w-80 max-h-[calc(100vh-100px)] p-0"
+            className="w-screen max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl p-0"
             align="start"
             onMouseEnter={() => setIsToolsPopoverOpen(true)}
             onMouseLeave={() => setIsToolsPopoverOpen(false)}
           >
-            <ScrollArea className="h-full max-h-[70vh]">
-              <div className="p-4">
+            <ScrollArea className="max-h-[75vh]">
+              <div className="p-4 md:p-6">
                 <h4 className="font-medium leading-none mb-4">All PDF Tools</h4>
-                <div className="grid gap-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1">
                   {ALL_TOOLS.map((tool: Tool) => (
                     <Link
                       key={tool.title}
                       href="/" // All tools are on the home page for now
-                      className="flex items-center gap-3 p-2 rounded-md hover:bg-accent -mx-2"
+                      className="flex items-start gap-4 p-2 rounded-lg hover:bg-accent -m-1"
                       onClick={() => setIsToolsPopoverOpen(false)}
                     >
-                      <div className="p-2 bg-primary/10 rounded-md">
+                      <div className="p-2 bg-primary/10 rounded-lg mt-1">
                         {tool.icon}
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <p className="text-sm font-medium">{tool.title}</p>
                         <p className="text-xs text-muted-foreground">{tool.description}</p>
                       </div>
