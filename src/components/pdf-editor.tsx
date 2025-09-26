@@ -60,6 +60,14 @@ const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode, titl
     </div>
 );
 
+// Function to remove non-WinAnsi characters
+const sanitizeTextForPdf = (text: string): string => {
+  // This is a simplified regex. A more accurate one would be more complex.
+  // It aims to remove most common characters outside of the WinAnsi spec.
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/[^\x00-\x7F\u20AC-\u2122]/g, '');
+};
+
 export function PdfEditor() {
   const [pdfSources, setPdfSources] = useState<PdfSource[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
@@ -319,8 +327,8 @@ export function PdfEditor() {
 
             // Basic table rendering logic
             const table = {
-                headers: jsonData[0],
-                rows: jsonData.slice(1),
+                headers: jsonData[0] as string[],
+                rows: jsonData.slice(1) as string[][],
             };
 
             const numCols = table.headers.length;
@@ -332,7 +340,7 @@ export function PdfEditor() {
             // Draw headers
             let y = tableTop;
             table.headers.forEach((header, i) => {
-                page.drawText(String(header), {
+                page.drawText(sanitizeTextForPdf(String(header ?? '')), {
                     x: margin + i * colWidth + 5,
                     y: y - rowHeight / 2,
                     font: boldFont,
@@ -356,7 +364,7 @@ export function PdfEditor() {
                 }
 
                 row.forEach((cell, i) => {
-                    page.drawText(String(cell ?? ''), {
+                    page.drawText(sanitizeTextForPdf(String(cell ?? '')), {
                         x: margin + i * colWidth + 5,
                         y: y - rowHeight / 2,
                         font,
