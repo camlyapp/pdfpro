@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -53,10 +53,12 @@ export function PdfEditor() {
   const [pages, setPages] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
   const [enableCompression, setEnableCompression] = useState(false);
   const [targetSize, setTargetSize] = useState<number>(1);
   const [targetUnit, setTargetUnit] = useState<'MB' | 'KB'>('MB');
+  const [compressedPdfBytes, setCompressedPdfBytes] = useState<Uint8Array | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mergeFileInputRef = useRef<HTMLInputElement>(null);
@@ -64,15 +66,22 @@ export function PdfEditor() {
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
   const { toast } = useToast();
+  
+  const resetCompressedState = () => {
+    if (compressedPdfBytes) {
+      setCompressedPdfBytes(null);
+      toast({ title: "Edits detected", description: "Please re-compress your PDF before downloading.", variant: 'default' });
+    }
+  };
 
   const processAndSetPdf = async (file: File, sourceIndex: number) => {
     setIsLoading(true);
+    resetCompressedState();
     if (sourceIndex === 0) {
       setPages([]);
     }
     try {
       const arrayBuffer = await file.arrayBuffer();
-      // Clone the buffer for pdf-lib and pdf.js to avoid "detached ArrayBuffer" issues
       const arrayBufferForPdfLib = arrayBuffer.slice(0); 
       const arrayBufferForPdfJs = arrayBuffer.slice(0);
       const pdfjsDoc = await pdfjsLib.getDocument({ data: arrayBufferForPdfJs }).promise;
@@ -132,6 +141,7 @@ export function PdfEditor() {
       return;
     }
     setIsMerging(true);
+    resetCompressedState();
     await processAndSetPdf(file, pdfSources.length);
     setIsMerging(false);
     toast({ title: 'PDF Merged', description: `Added pages from "${file.name}".`});
@@ -152,6 +162,7 @@ export function PdfEditor() {
     try {
         const imageBytes = await file.arrayBuffer();
         const imageUrl = URL.createObjectURL(file);
+        resetCompressedState();
 
         const newPage: Page = {
             id: Date.now(),
@@ -165,7 +176,6 @@ export function PdfEditor() {
         };
 
         if (pdfSources.length === 0) {
-            // If no PDF is loaded, create a new one with the image.
             const newPdfDoc = await PDFDocument.create();
             const page = newPdfDoc.addPage();
             const image = await (file.type === 'image/png' ? newPdfDoc.embedPng(imageBytes) : newPdfDoc.embedJpg(imageBytes));
@@ -203,7 +213,6 @@ export function PdfEditor() {
     const pageData = pages[pageIndex];
 
     if (pageData.isNew || pageData.isFromImage) {
-      // It's a blank page or image page, rendering is handled directly or already done.
       return;
     }
     
@@ -212,7 +221,7 @@ export function PdfEditor() {
 
     try {
       const page = await source.pdfjsDoc.getPage(pageData.originalIndex + 1);
-      const viewport = page.getViewport({ scale: 1.5 }); // Increased scale for better quality preview
+      const viewport = page.getViewport({ scale: 1.5 });
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       canvas.height = viewport.height;
@@ -220,7 +229,7 @@ export function PdfEditor() {
 
       if (context) {
         await page.render({ canvasContext: context, viewport }).promise;
-        const imageUrl = canvas.toDataURL('image/jpeg', 0.7); // Use jpeg for smaller preview size
+        const imageUrl = canvas.toDataURL('image/jpeg', 0.7);
         setPages((prev) =>
           prev.map((p) => (p.id === pageId ? { ...p, image: imageUrl } : p))
         );
@@ -236,6 +245,7 @@ export function PdfEditor() {
       const [reorderedItem] = newPages.splice(draggedItemIndex.current, 1);
       newPages.splice(dragOverItemIndex.current, 0, reorderedItem);
       setPages(newPages);
+      resetCompressedState();
     }
     draggedItemIndex.current = null;
     dragOverItemIndex.current = null;
@@ -244,7 +254,8 @@ export function PdfEditor() {
   const handleDeletePage = useCallback((id: number) => {
     setPages((prev) => prev.filter((p) => p.id !== id));
     toast({ title: 'Page removed' });
-  }, [toast]);
+    resetCompressedState();
+  }, [toast, compressedPdfBytes]);
   
   const handleAddPage = () => {
     const newPage: Page = {
@@ -255,10 +266,12 @@ export function PdfEditor() {
     };
     setPages(prev => [...prev, newPage]);
     toast({ title: 'Blank page added' });
+    resetCompressedState();
   };
   
   const handleImageScaleChange = (id: number, scale: number) => {
     setPages(prev => prev.map(p => p.id === id ? { ...p, imageScale: scale } : p));
+    resetCompressedState();
   };
 
   const generatePdfBytes = async (quality: number = 0.8): Promise<Uint8Array> => {
@@ -310,6 +323,53 @@ export function PdfEditor() {
     }
     return newPdf.save();
   }
+  
+  const handleCompress = async () => {
+    if (pages.length === 0) return;
+    setIsCompressing(true);
+    setCompressedPdfBytes(null);
+    try {
+      toast({ title: 'Compressing PDF...', description: 'This may take a moment.' });
+      const targetBytes = targetUnit === 'MB' ? targetSize * 1024 * 1024 : targetSize * 1024;
+      
+      let minQuality = 0.01;
+      let maxQuality = 1.0;
+      let bestQuality = 0.8;
+      let bestPdfBytes: Uint8Array | null = null;
+      let iterations = 0;
+
+      while (minQuality <= maxQuality && iterations < 10) {
+        const currentQuality = (minQuality + maxQuality) / 2;
+        const currentPdfBytes = await generatePdfBytes(currentQuality);
+        
+        if (currentPdfBytes.length <= targetBytes) {
+          bestPdfBytes = currentPdfBytes;
+          bestQuality = currentQuality;
+          minQuality = currentQuality + 0.01;
+        } else {
+          maxQuality = currentQuality - 0.01;
+        }
+        iterations++;
+      }
+      
+      const finalBytes = bestPdfBytes ?? await generatePdfBytes(bestQuality);
+      setCompressedPdfBytes(finalBytes);
+
+      const finalSizeMB = (finalBytes.length / 1024 / 1024).toFixed(2);
+      const finalSizeKB = (finalBytes.length / 1024).toFixed(2);
+      
+      if (finalBytes.length > targetBytes) {
+        toast({ variant: 'destructive', title: 'Compression Limit Reached', description: `Could not compress to below ${targetSize} ${targetUnit}. Final size is ${targetUnit === 'MB' ? finalSizeMB + 'MB' : finalSizeKB + 'KB'}.` });
+      } else {
+        toast({ title: 'Compression Successful', description: `Final size is ${targetUnit === 'MB' ? finalSizeMB + 'MB' : finalSizeKB + 'KB'}. Ready to download.` });
+      }
+    } catch (error) {
+      console.error(error);
+      toast({ variant: 'destructive', title: 'Failed to Compress PDF', description: 'An error occurred during compression.' });
+    } finally {
+      setIsCompressing(false);
+    }
+  }
 
 
   const handleDownload = async () => {
@@ -320,41 +380,12 @@ export function PdfEditor() {
       let pdfBytes: Uint8Array;
 
       if (enableCompression) {
-        toast({ title: 'Compressing PDF...', description: 'This may take a moment.' });
-        const targetBytes = targetUnit === 'MB' ? targetSize * 1024 * 1024 : targetSize * 1024;
-        
-        // Binary search for the best quality
-        let minQuality = 0.01;
-        let maxQuality = 1.0;
-        let bestQuality = 0.8;
-        let bestPdfBytes: Uint8Array | null = null;
-        let iterations = 0;
-
-        while (minQuality <= maxQuality && iterations < 10) {
-          const currentQuality = (minQuality + maxQuality) / 2;
-          const currentPdfBytes = await generatePdfBytes(currentQuality);
-          
-          if (currentPdfBytes.length <= targetBytes) {
-            // Good candidate, try for better quality (larger size)
-            bestPdfBytes = currentPdfBytes;
-            bestQuality = currentQuality;
-            minQuality = currentQuality + 0.01;
-          } else {
-            // Too large, reduce quality
-            maxQuality = currentQuality - 0.01;
-          }
-          iterations++;
-        }
-        
-        pdfBytes = bestPdfBytes ?? await generatePdfBytes(bestQuality);
-
-        const finalSizeMB = (pdfBytes.length / 1024 / 1024).toFixed(2);
-        const finalSizeKB = (pdfBytes.length / 1024).toFixed(2);
-
-        if (pdfBytes.length > targetBytes) {
-          toast({ variant: 'destructive', title: 'Compression Limit Reached', description: `Could not compress to below ${targetSize} ${targetUnit}. Final size is ${targetUnit === 'MB' ? finalSizeMB + 'MB' : finalSizeKB + 'KB'}.` });
+        if (compressedPdfBytes) {
+          pdfBytes = compressedPdfBytes;
         } else {
-          toast({ title: 'Compression Successful', description: `Final size is ${targetUnit === 'MB' ? finalSizeMB + 'MB' : finalSizeKB + 'KB'}.` });
+            toast({ variant: 'destructive', title: 'Not Compressed', description: 'Please click the resize icon to compress the file first.' });
+            setIsDownloading(false);
+            return;
         }
       } else {
         pdfBytes = await generatePdfBytes();
@@ -381,6 +412,7 @@ export function PdfEditor() {
   const handleReset = () => {
     setPdfSources([]);
     setPages([]);
+    setCompressedPdfBytes(null);
     if(fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -497,17 +529,17 @@ export function PdfEditor() {
                   {enableCompression && (
                       <div className='space-y-2 pt-2'>
                           <Label htmlFor="target-size">Target File Size</Label>
-                          <div className="flex gap-2">
+                          <div className="flex items-center gap-2">
                               <Input
                                   id="target-size"
                                   type="number"
                                   value={targetSize}
                                   onChange={(e) => setTargetSize(Math.max(0, parseFloat(e.target.value) || 0))}
-                                  className="w-2/3"
+                                  className="w-full"
                                   min="0"
                               />
                               <Select value={targetUnit} onValueChange={(value: 'MB' | 'KB') => setTargetUnit(value)}>
-                                  <SelectTrigger className="w-1/3">
+                                  <SelectTrigger className="w-32">
                                       <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -515,7 +547,16 @@ export function PdfEditor() {
                                       <SelectItem value="KB">KB</SelectItem>
                                   </SelectContent>
                               </Select>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="outline" size="icon" onClick={handleCompress} disabled={isCompressing}>
+                                    {isCompressing ? <Loader2 className="animate-spin" /> : <Rocket className="h-4 w-4" />}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Resize File</TooltipContent>
+                              </Tooltip>
                           </div>
+                          {compressedPdfBytes && <p className="text-xs text-muted-foreground pt-1">Ready to download a file of {(compressedPdfBytes.length / 1024 / (targetUnit === 'MB' ? 1024 : 1)).toFixed(2)} {targetUnit}</p>}
                       </div>
                   )}
                 </div>
@@ -570,5 +611,3 @@ export function PdfEditor() {
     </div>
   );
 }
-
-    
