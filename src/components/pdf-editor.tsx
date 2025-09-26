@@ -858,12 +858,12 @@ export function PdfEditor() {
     }
 
     if (enableEncryption && encryptionPassword) {
-        saveOptions.userPassword = encryptionPassword;
-        saveOptions.ownerPassword = encryptionPassword;
-        saveOptions.permissions = [
-            PDFDocument.PermissionFlag.Print,
-            PDFDocument.PermissionFlag.Copy,
-        ];
+      saveOptions.userPassword = encryptionPassword;
+      saveOptions.ownerPassword = encryptionPassword;
+      saveOptions.permissions = [
+        PDFDocument.PermissionFlag.Print,
+        PDFDocument.PermissionFlag.Copy,
+      ];
     }
 
 
@@ -1501,6 +1501,26 @@ const handleDownloadAsWord = async () => {
                         title="HTML to PDF"
                         onClick={() => htmlFileInputRef.current?.click()}
                         disabled={isConvertingHtml}
+                    />
+                    <ToolCard
+                        icon={<Combine className="h-8 w-8 text-primary" />}
+                        title="Merge PDF"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                    <ToolCard
+                        icon={<Split className="h-8 w-8 text-primary" />}
+                        title="Split PDF"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                     <ToolCard
+                        icon={<Lock className="h-8 w-8 text-primary" />}
+                        title="Protect PDF"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                    <ToolCard
+                        icon={<Shuffle className="h-8 w-8 text-primary" />}
+                        title="Reorder Pages"
+                        onClick={() => fileInputRef.current?.click()}
                     />
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
