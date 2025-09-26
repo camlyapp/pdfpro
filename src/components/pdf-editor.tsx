@@ -1174,12 +1174,12 @@ export function PdfEditor() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 p-4 bg-card border rounded-lg shadow-sm">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            <div className='flex-shrink-0'>
-                <h2 className="font-bold text-lg">{pdfSources[0]?.file.name}</h2>
+        <div className="flex flex-wrap md:flex-nowrap gap-4 items-center justify-between">
+            <div className='flex-auto min-w-0'>
+                <h2 className="font-bold text-lg truncate" title={pdfSources[0]?.file.name}>{pdfSources[0]?.file.name}</h2>
                 <p className="text-sm text-muted-foreground">{pages.length} pages</p>
             </div>
-             <div className="flex items-center rounded-md border flex-shrink-0 ml-auto">
+             <div className="flex items-center rounded-md border flex-shrink-0">
               <Button onClick={handleDownload} disabled={isDownloading} variant="ghost" className="border-r rounded-r-none">
                 {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
                 {getDownloadButtonText()}
@@ -1401,8 +1401,3 @@ export function PdfEditor() {
     </div>
   );
 }
-
-    
-
-    
-
