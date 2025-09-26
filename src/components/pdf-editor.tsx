@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, ChangeEvent, useEffect } from 'react';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFPage } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 
 import { Button } from '@/components/ui/button';
@@ -11,13 +11,17 @@ import { analyzePageLayout } from '@/lib/actions';
 import { PagePreview } from '@/components/page-preview';
 import { Download, FileUp, Loader2, Replace, Trash2 } from 'lucide-react';
 
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
 type Page = {
   id: number;
-  image: string;
+  image?: string;
   originalIndex: number;
   analysis?: string;
   isAnalyzing?: boolean;
 };
+
+let pdfDoc: pdfjsLib.PDFDocumentProxy | null = null;
 
 export function PdfEditor() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -30,10 +34,6 @@ export function PdfEditor() {
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
   const { toast } = useToast();
-
-  useEffect(() => {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-  }, []);
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -55,28 +55,17 @@ export function PdfEditor() {
     try {
       const arrayBuffer = await file.arrayBuffer();
       setPdfArrayBuffer(arrayBuffer);
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const numPages = pdf.numPages;
-      const renderedPages: Page[] = [];
+      pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const numPages = pdfDoc.numPages;
+      const initialPages: Page[] = [];
 
       for (let i = 1; i <= numPages; i++) {
-        const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 1.0 });
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        if (context) {
-          await page.render({ canvasContext: context, viewport: viewport }).promise;
-          renderedPages.push({
-            id: Date.now() + i,
-            image: canvas.toDataURL('image/jpeg', 0.8),
-            originalIndex: i - 1,
-          });
-        }
+        initialPages.push({
+          id: Date.now() + i,
+          originalIndex: i - 1,
+        });
       }
-      setPages(renderedPages);
+      setPages(initialPages);
     } catch (error) {
       console.error(error);
       toast({
@@ -88,6 +77,31 @@ export function PdfEditor() {
       setIsLoading(false);
     }
   };
+
+  const renderPage = useCallback(async (pageId: number) => {
+    const pageIndex = pages.findIndex((p) => p.id === pageId);
+    if (pageIndex === -1 || pages[pageIndex].image || !pdfDoc) return;
+
+    const pageData = pages[pageIndex];
+    try {
+      const page = await pdfDoc.getPage(pageData.originalIndex + 1);
+      const viewport = page.getViewport({ scale: 1.0 });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      if (context) {
+        await page.render({ canvasContext: context, viewport }).promise;
+        const imageUrl = canvas.toDataURL('image/jpeg', 0.5);
+        setPages((prev) =>
+          prev.map((p) => (p.id === pageId ? { ...p, image: imageUrl } : p))
+        );
+      }
+    } catch (error) {
+      console.error(`Failed to render page ${pageData.originalIndex + 1}`, error);
+    }
+  }, [pages]);
 
   const handleDragEnd = () => {
     if (draggedItemIndex.current !== null && dragOverItemIndex.current !== null) {
@@ -106,10 +120,14 @@ export function PdfEditor() {
   }, [toast]);
 
   const handleAnalyzePage = useCallback(async (id: number) => {
+    const pageToAnalyze = pages.find((p) => p.id === id);
+    if (!pageToAnalyze || !pageToAnalyze.image) {
+      toast({ variant: 'destructive', title: 'Cannot Analyze', description: 'Page image is not available yet.' });
+      return;
+    };
+
     setPages((prev) => prev.map((p) => (p.id === id ? { ...p, isAnalyzing: true } : p)));
 
-    const pageToAnalyze = pages.find((p) => p.id === id);
-    if (!pageToAnalyze) return;
 
     const result = await analyzePageLayout(pageToAnalyze.image);
 
@@ -158,6 +176,7 @@ export function PdfEditor() {
     setPdfFile(null);
     setPdfArrayBuffer(null);
     setPages([]);
+    pdfDoc = null;
     if(fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -225,6 +244,7 @@ export function PdfEditor() {
               pageNumber={index + 1}
               onDelete={handleDeletePage}
               onAnalyze={handleAnalyzePage}
+              onVisible={() => renderPage(page.id)}
             />
           </div>
         ))}

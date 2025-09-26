@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,10 +9,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { GripVertical, Trash2, Sparkles, Loader2, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from './ui/badge';
+import { Skeleton } from './ui/skeleton';
 
 type Page = {
   id: number;
-  image: string;
+  image?: string;
   analysis?: string;
   isAnalyzing?: boolean;
 };
@@ -21,13 +23,40 @@ interface PagePreviewProps {
   pageNumber: number;
   onDelete: (id: number) => void;
   onAnalyze: (id: number) => void;
+  onVisible: () => void;
 }
 
-export function PagePreview({ page, pageNumber, onDelete, onAnalyze }: PagePreviewProps) {
+export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible }: PagePreviewProps) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          onVisible();
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '100px' }
+    );
+
+    observer.observe(ref.current);
+
+    return () => observer.disconnect();
+  }, [onVisible]);
+
   return (
-    <Card className="group relative overflow-hidden shadow-md hover:shadow-primary/20 hover:shadow-lg transition-shadow duration-300">
+    <Card ref={ref} className="group relative overflow-hidden shadow-md hover:shadow-primary/20 hover:shadow-lg transition-shadow duration-300">
       <CardContent className="p-0 aspect-[210/297] relative">
-        <Image src={page.image} alt={`Page ${pageNumber}`} fill className="object-contain" />
+        {page.image ? (
+          <Image src={page.image} alt={`Page ${pageNumber}`} fill className="object-contain" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-muted">
+            <Skeleton className="w-full h-full" />
+          </div>
+        )}
         <Badge variant="secondary" className="absolute top-2 left-2">{pageNumber}</Badge>
         <div className="absolute top-1 right-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Tooltip>
@@ -71,7 +100,7 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze }: PagePrevi
               size="icon"
               className="h-8 w-8"
               onClick={() => onAnalyze(page.id)}
-              disabled={page.isAnalyzing}
+              disabled={page.isAnalyzing || !page.image}
             >
               {page.isAnalyzing ? <Loader2 className="animate-spin" /> : <Sparkles />}
             </Button>
