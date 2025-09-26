@@ -276,12 +276,24 @@ export function PdfEditor() {
           // To control quality, we must use JPG.
           if (page.imageType === 'image/png') {
               const pngImage = await newPdf.embedPng(imageBytesCopy);
-              const jpgImageBytes = await pngImage.asJpg(quality);
-              image = await newPdf.embedJpg(jpgImageBytes);
-          } else {
-              image = await newPdf.embedJpg(imageBytesCopy, {quality});
-          }
+              // Create a temporary PDF to convert PNG to JPG with quality
+              const tempPdf = await PDFDocument.create();
+              const tempPage = tempPdf.addPage();
+              tempPage.drawImage(pngImage, {width: pngImage.width, height: pngImage.height});
+              const tempBytes = await tempPdf.save();
+              const loadedPdf = await PDFDocument.load(tempBytes);
+              const embeddedImages = loadedPdf.getPage(0).images;
+              if (embeddedImages.length > 0) {
+                 const jpgBytes = await embeddedImages[0].image.asJpg(quality);
+                 image = await newPdf.embedJpg(jpgBytes);
+              } else {
+                 image = await newPdf.embedPng(imageBytesCopy); // fallback
+              }
 
+          } else { // Assumes jpeg or similar
+              image = await newPdf.embedJpg(imageBytesCopy);
+          }
+          
           const pageToAdd = newPdf.addPage();
           const { width, height } = image.scale(1);
           pageToAdd.setSize(width, height);
@@ -303,6 +315,10 @@ export function PdfEditor() {
           newPdf.addPage(copiedPage);
         }
       }
+    }
+
+    if (enableCompression) {
+      return newPdf.save({ useObjectStreams: false });
     }
     return newPdf.save();
   }
@@ -331,11 +347,12 @@ export function PdfEditor() {
         }
 
         const finalSizeMB = (pdfBytes.length / 1024 / 1024).toFixed(2);
+        const finalSizeKB = (pdfBytes.length / 1024).toFixed(2);
 
         if (pdfBytes.length > targetBytes) {
-          toast({ variant: 'destructive', title: 'Compression Limit Reached', description: `Could not compress to below ${targetSize} ${targetUnit}. Final size is ${finalSizeMB} MB.` });
+          toast({ variant: 'destructive', title: 'Compression Limit Reached', description: `Could not compress to below ${targetSize} ${targetUnit}. Final size is ${targetUnit === 'MB' ? finalSizeMB + 'MB' : finalSizeKB + 'KB'}.` });
         } else {
-          toast({ title: 'Compression Successful', description: `Final size is ${finalSizeMB} MB.` });
+          toast({ title: 'Compression Successful', description: `Final size is ${targetUnit === 'MB' ? finalSizeMB + 'MB' : finalSizeKB + 'KB'}.` });
         }
       } else {
         pdfBytes = await generatePdfBytes();
