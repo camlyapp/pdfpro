@@ -6,10 +6,12 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { GripVertical, Trash2, Sparkles, Loader2, Info, File } from 'lucide-react';
+import { GripVertical, Trash2, Sparkles, Loader2, Info, File, ZoomIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
+import { Slider } from './ui/slider';
+import { Label } from './ui/label';
 
 type Page = {
   id: number;
@@ -18,6 +20,7 @@ type Page = {
   isAnalyzing?: boolean;
   isNew?: boolean;
   isFromImage?: boolean;
+  imageScale?: number;
 };
 
 interface PagePreviewProps {
@@ -26,9 +29,10 @@ interface PagePreviewProps {
   onDelete: (id: number) => void;
   onAnalyze: (id: number) => void;
   onVisible: () => void;
+  onImageScaleChange: (scale: number) => void;
 }
 
-export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible }: PagePreviewProps) {
+export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible, onImageScaleChange }: PagePreviewProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -61,7 +65,8 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible }
       );
     }
     if (page.image) {
-      return <Image src={page.image} alt={`Page ${pageNumber}`} fill className="object-contain" />;
+      const imageStyle = page.isFromImage ? { transform: `scale(${page.imageScale ?? 1})` } : {};
+      return <Image src={page.image} alt={`Page ${pageNumber}`} fill className="object-contain transition-transform" style={imageStyle}/>;
     }
     return (
       <div className="w-full h-full flex items-center justify-center bg-muted">
@@ -110,6 +115,43 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible }
           </Popover>
         )}
 
+        {page.isFromImage && (
+          <Popover>
+            <PopoverTrigger asChild>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ZoomIn />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Resize Image</TooltipContent>
+                </Tooltip>
+            </PopoverTrigger>
+            <PopoverContent className="w-56" align="end">
+                <div className="grid gap-4">
+                    <div className="space-y-2">
+                        <h4 className="font-medium leading-none">Image Scale</h4>
+                        <p className="text-xs text-muted-foreground">Adjust the size of the image on the page.</p>
+                    </div>
+                    <div className='space-y-4'>
+                        <div className="flex justify-between items-center">
+                            <Label htmlFor="image-scale" className="text-sm">Scale</Label>
+                            <span className="text-sm font-medium">{Math.round((page.imageScale ?? 1) * 100)}%</span>
+                        </div>
+                        <Slider
+                            id="image-scale"
+                            min={0.1}
+                            max={2}
+                            step={0.05}
+                            defaultValue={[page.imageScale ?? 1]}
+                            onValueChange={(value) => onImageScaleChange(value[0])}
+                        />
+                    </div>
+                </div>
+            </PopoverContent>
+          </Popover>
+        )}
+
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -142,3 +184,5 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible }
     </Card>
   );
 }
+
+    

@@ -24,6 +24,7 @@ type Page = {
   isFromImage?: boolean; // For pages created from an image
   imageBytes?: ArrayBuffer; // For pages created from an image
   imageType?: string; // e.g., 'image/png'
+  imageScale?: number;
 };
 
 type PdfSource = {
@@ -63,8 +64,10 @@ export function PdfEditor() {
     }
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const arrayBufferForPdfLib = arrayBuffer.slice(0); // Create a copy for pdf-lib
-      const pdfjsDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      // Clone the buffer for pdf-lib and pdf.js to avoid "detached ArrayBuffer" issues
+      const arrayBufferForPdfLib = arrayBuffer.slice(0); 
+      const arrayBufferForPdfJs = arrayBuffer.slice(0);
+      const pdfjsDoc = await pdfjsLib.getDocument({ data: arrayBufferForPdfJs }).promise;
       
       setPdfSources(prev => {
         const newSources = [...prev];
@@ -150,6 +153,7 @@ export function PdfEditor() {
             image: imageUrl,
             imageBytes: imageBytes,
             imageType: file.type,
+            imageScale: 1,
         };
 
         if (pdfSources.length === 0) {
@@ -244,6 +248,10 @@ export function PdfEditor() {
     setPages(prev => [...prev, newPage]);
     toast({ title: 'Blank page added' });
   };
+  
+  const handleImageScaleChange = (id: number, scale: number) => {
+    setPages(prev => prev.map(p => p.id === id ? { ...p, imageScale: scale } : p));
+  };
 
   const handleAnalyzePage = useCallback(async (id: number) => {
     const pageToAnalyze = pages.find((p) => p.id === id);
@@ -283,7 +291,17 @@ export function PdfEditor() {
             const pageToAdd = newPdf.addPage();
             const { width, height } = image.scale(1);
             pageToAdd.setSize(width, height);
-            pageToAdd.drawImage(image, { x: 0, y: 0, width, height });
+            
+            const scaledDims = image.scale(page.imageScale ?? 1);
+            const x = (pageToAdd.getWidth() - scaledDims.width) / 2;
+            const y = (pageToAdd.getHeight() - scaledDims.height) / 2;
+
+            pageToAdd.drawImage(image, { 
+                x,
+                y,
+                width: scaledDims.width,
+                height: scaledDims.height 
+            });
         } else {
           const sourcePdf = sourcePdfDocs[page.pdfSourceIndex];
           if(sourcePdf) {
@@ -429,6 +447,7 @@ export function PdfEditor() {
               onDelete={handleDeletePage}
               onAnalyze={handleAnalyzePage}
               onVisible={() => renderPage(page.id)}
+              onImageScaleChange={(scale) => handleImageScaleChange(page.id, scale)}
             />
           </div>
         ))}
@@ -455,3 +474,5 @@ export function PdfEditor() {
     </div>
   );
 }
+
+    
