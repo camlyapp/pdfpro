@@ -255,7 +255,7 @@ export function PdfEditor() {
     setPages((prev) => prev.filter((p) => p.id !== id));
     toast({ title: 'Page removed' });
     resetCompressedState();
-  }, [toast, compressedPdfBytes]);
+  }, [toast]);
   
   const handleAddPage = () => {
     const newPage: Page = {
@@ -274,7 +274,7 @@ export function PdfEditor() {
     resetCompressedState();
   };
 
-  const generatePdfBytes = async (quality: number = 0.8): Promise<Uint8Array> => {
+  const generatePdfBytes = async (quality?: number): Promise<Uint8Array> => {
     const newPdf = await PDFDocument.create();
     const sourcePdfDocs = pdfSources.length > 0 ? await Promise.all(
       pdfSources.map(source => PDFDocument.load(source.arrayBufferForPdfLib.slice(0)))
@@ -285,17 +285,25 @@ export function PdfEditor() {
         newPdf.addPage();
       } else if (page.isFromImage && page.imageBytes) {
           const imageBytesCopy = page.imageBytes.slice(0);
+          const pageToAdd = newPdf.addPage();
           
           let image;
           if (page.imageType === 'image/png') {
               const pngImage = await newPdf.embedPng(imageBytesCopy);
-              image = await newPdf.embedJpg(await pngImage.asJpg(quality));
+              if (quality !== undefined) {
+                  image = await newPdf.embedJpg(await pngImage.asJpg({quality}));
+              } else {
+                  image = pngImage;
+              }
 
           } else { // Assumes jpeg or similar
-              image = await newPdf.embedJpg(imageBytesCopy, quality);
+              if (quality !== undefined) {
+                  image = await newPdf.embedJpg(imageBytesCopy, {quality});
+              } else {
+                  image = await newPdf.embedJpg(imageBytesCopy);
+              }
           }
           
-          const pageToAdd = newPdf.addPage();
           const { width, height } = image.scale(1);
           pageToAdd.setSize(width, height);
           
@@ -310,6 +318,7 @@ export function PdfEditor() {
               height: scaledDims.height 
           });
       } else {
+        if(page.pdfSourceIndex < 0 || page.pdfSourceIndex >= sourcePdfDocs.length) continue;
         const sourcePdf = sourcePdfDocs[page.pdfSourceIndex];
         if(sourcePdf) {
           const [copiedPage] = await newPdf.copyPages(sourcePdf, [page.originalIndex]);
@@ -319,7 +328,7 @@ export function PdfEditor() {
     }
 
     if (enableCompression) {
-      return newPdf.save({ useObjectStreams: false });
+        return newPdf.save({ useObjectStreams: false });
     }
     return newPdf.save();
   }
@@ -337,6 +346,19 @@ export function PdfEditor() {
       let bestQuality = 0.8;
       let bestPdfBytes: Uint8Array | null = null;
       let iterations = 0;
+
+      // check if there are any images to compress
+      const hasImages = pages.some(p => p.isFromImage);
+      if (!hasImages) {
+        const finalBytes = await generatePdfBytes();
+        setCompressedPdfBytes(finalBytes);
+        const finalSizeMB = (finalBytes.length / 1024 / 1024).toFixed(2);
+        const finalSizeKB = (finalBytes.length / 1024).toFixed(2);
+        toast({ title: 'No images to compress', description: `Final size is ${targetUnit === 'MB' ? finalSizeMB + 'MB' : finalSizeKB + 'KB'}.` });
+        setIsCompressing(false);
+        return;
+      }
+
 
       while (minQuality <= maxQuality && iterations < 10) {
         const currentQuality = (minQuality + maxQuality) / 2;
