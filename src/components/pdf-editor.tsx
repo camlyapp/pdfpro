@@ -9,7 +9,7 @@ import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-
+import { Document, Packer, Paragraph, TextRun } from 'docx';
 
 
 import { Button } from '@/components/ui/button';
@@ -53,7 +53,7 @@ type PdfSource = {
   pdfjsDoc: pdfjsLib.PDFDocumentProxy;
 };
 
-type DownloadFormat = 'pdf' | 'png' | 'jpeg' | 'ppt' | 'xlsx';
+type DownloadFormat = 'pdf' | 'png' | 'jpeg' | 'ppt' | 'xlsx' | 'word';
 
 
 const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => (
@@ -1022,6 +1022,79 @@ export function PdfEditor() {
     }
 };
 
+const handleDownloadAsWord = async () => {
+    if (pages.length === 0) return;
+
+    setIsDownloading(true);
+    toast({ title: 'Creating Word document...', description: 'This may take a moment.' });
+
+    try {
+        const paragraphs: Paragraph[] = [];
+
+        for (const pageInfo of pages) {
+            if (pageInfo.isNew) {
+                paragraphs.push(new Paragraph({ children: [new TextRun({ text: '', break: 1 })] }));
+                continue;
+            }
+
+            if (pageInfo.isFromImage) {
+                // Cannot directly embed images from URL in docx library easily on client-side
+                // Skipping images for now.
+                continue;
+            }
+            
+            const source = pdfSources[pageInfo.pdfSourceIndex];
+            if (!source) continue;
+
+            const page = await source.pdfjsDoc.getPage(pageInfo.originalIndex + 1);
+            const textContent = await page.getTextContent();
+            
+            // A simple approach to group text items into paragraphs
+            let currentY = -1;
+            let line = '';
+            textContent.items.forEach((item: any) => {
+                if (currentY !== -1 && Math.abs(currentY - item.transform[5]) > 5) {
+                    paragraphs.push(new Paragraph(line));
+                    line = '';
+                }
+                line += item.str + ' ';
+                currentY = item.transform[5];
+            });
+            if (line.trim()) {
+                paragraphs.push(new Paragraph(line));
+            }
+            // Add a page break after each PDF page
+            paragraphs.push(new Paragraph({ children: [new TextRun({ text: '', break: 1 })] }));
+        }
+
+        const doc = new Document({
+            sections: [{
+                children: paragraphs,
+            }],
+        });
+        
+        const blob = await Packer.toBlob(doc);
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        const newFileName = pdfSources[0]?.file.name.replace(/\.pdf$/i, '.docx') ?? 'document.docx';
+        link.download = newFileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        toast({ title: 'Download Started', description: `Your Word document "${newFileName}" is downloading.` });
+    } catch (error) {
+        console.error("Error creating Word document:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Error Creating Word Document',
+            description: 'An unexpected error occurred while converting to Word.',
+        });
+    } finally {
+        setIsDownloading(false);
+    }
+};
+
  const handleSplitPdf = async () => {
     if (pages.length === 0) return;
 
@@ -1171,6 +1244,9 @@ export function PdfEditor() {
       case 'xlsx':
         handleDownloadAsXlsx();
         break;
+      case 'word':
+        handleDownloadAsWord();
+        break;
       default:
         handleDownloadPdf();
     }
@@ -1188,6 +1264,8 @@ export function PdfEditor() {
         return 'Download PPT';
       case 'xlsx':
         return 'Download Excel';
+      case 'word':
+        return 'Download Word';
       default:
         return 'Download PDF';
     }
@@ -1331,6 +1409,10 @@ export function PdfEditor() {
                                       <div className='flex items-center space-x-2'>
                                           <RadioGroupItem value="xlsx" id="xlsx" />
                                           <Label htmlFor="xlsx" className="font-normal flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" />Excel (.xlsx)</Label>
+                                      </div>
+                                      <div className='flex items-center space-x-2'>
+                                          <RadioGroupItem value="word" id="word" />
+                                          <Label htmlFor="word" className="font-normal flex items-center gap-2"><FileText className="h-4 w-4" />Word (.docx)</Label>
                                       </div>
                                   </RadioGroup>
                               </div>
