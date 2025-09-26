@@ -5,13 +5,14 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import JSZip from 'jszip';
 import pptxgen from 'pptxgenjs';
+import * as XLSX from 'xlsx';
 
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -237,7 +238,7 @@ export function PdfEditor() {
             reader.readAsDataURL(file);
         });
 
-        const svgContent = await imageToSvg({ photoDataUri: dataUri, prompt: '' });
+        const svgContent = await imageToSvg({ photoDataUri: dataUri, prompt: 'Return only the SVG code, without any wrapping text or markdown.' });
         
         const blob = new Blob([svgContent], { type: 'image/svg+xml' });
         const link = document.createElement('a');
@@ -619,6 +620,80 @@ export function PdfEditor() {
     }
   };
 
+  const handleDownloadAsXlsx = async () => {
+    if (pages.length === 0) return;
+    
+    setIsDownloading(true);
+    toast({ title: 'Creating Excel file...', description: 'This may take several moments depending on the document size.' });
+
+    try {
+        const wb = XLSX.utils.book_new();
+        let sheetCount = 0;
+
+        const ocrPromptForExcel = "Extract all tabular data from this document. Return the data as a JSON object with a key 'tables', which is an array of tables. Each table should be an array of objects, where each object represents a row.";
+
+        for (let i = 0; i < pages.length; i++) {
+            const pageData = pages[i];
+            
+            // Skip blank pages
+            if(pageData.isNew) continue;
+
+            toast({ title: `Processing page ${i + 1} of ${pages.length}...`});
+
+            let dataUri: string | undefined;
+
+            const source = pdfSources[pageData.pdfSourceIndex];
+            if (!source) continue;
+
+            const page = await source.pdfjsDoc.getPage(pageData.originalIndex + 1);
+            const viewport = page.getViewport({ scale: 2.0 });
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            if (context) {
+                await page.render({ canvasContext: context, viewport }).promise;
+                dataUri = canvas.toDataURL('image/jpeg', 0.9); // Use JPEG for smaller size
+            } else {
+                continue;
+            }
+            
+            if (dataUri) {
+                const result = await extractStructuredData({ photoDataUri: dataUri, prompt: ocrPromptForExcel });
+                const extracted = JSON.parse(result);
+
+                if (extracted && extracted.tables && Array.isArray(extracted.tables)) {
+                    for (const table of extracted.tables) {
+                        if (Array.isArray(table) && table.length > 0) {
+                            const ws = XLSX.utils.json_to_sheet(table);
+                            XLSX.utils.book_append_sheet(wb, ws, `Table_${sheetCount + 1}`);
+                            sheetCount++;
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (sheetCount > 0) {
+            const newFileName = pdfSources[0]?.file.name.replace(/\.pdf$/i, '.xlsx') ?? 'spreadsheet.xlsx';
+            XLSX.writeFile(wb, newFileName);
+            toast({ title: 'Download Started', description: `Your Excel file "${newFileName}" is downloading.` });
+        } else {
+            toast({ variant: 'destructive', title: 'No Tables Found', description: 'Could not find any tabular data to export to Excel.' });
+        }
+    } catch (error) {
+        console.error("Error creating Excel file:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Error Creating Excel File',
+            description: 'An unexpected error occurred while converting to Excel.',
+        });
+    } finally {
+        setIsDownloading(false);
+    }
+};
+
 
   const handleReset = () => {
     setPdfSources([]);
@@ -851,6 +926,10 @@ export function PdfEditor() {
                      <DropdownMenuItem onClick={handleDownloadAsPpt} disabled={isDownloading}>
                         <Presentation className="mr-2 h-4 w-4" />
                         <span>PowerPoint (.pptx)</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDownloadAsXlsx} disabled={isDownloading}>
+                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                        <span>Excel (.xlsx)</span>
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
