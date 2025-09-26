@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -17,6 +17,7 @@ import { Switch } from './ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from './ui/dropdown-menu';
+import { imageToSvg } from '@/ai/flows/image-to-svg';
 
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -56,6 +57,7 @@ export function PdfEditor() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
+  const [isConvertingToSvg, setIsConvertingToSvg] = useState(false);
   const [enableCompression, setEnableCompression] = useState(false);
   const [targetSize, setTargetSize] = useState<number>(1);
   const [targetUnit, setTargetUnit] = useState<'MB' | 'KB'>('MB');
@@ -64,6 +66,7 @@ export function PdfEditor() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mergeFileInputRef = useRef<HTMLInputElement>(null);
   const imageFileInputRef = useRef<HTMLInputElement>(null);
+  const imageToSvgInputRef = useRef<HTMLInputElement>(null);
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
   const { toast } = useToast();
@@ -204,6 +207,48 @@ export function PdfEditor() {
     }
 
     if (event.target) event.target.value = '';
+  };
+
+  const handleImageToSvg = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid File',
+            description: 'Please select a valid image file.',
+        });
+        return;
+    }
+    setIsConvertingToSvg(true);
+    toast({ title: 'Converting to SVG...', description: 'This might take a moment.' });
+    try {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const dataUri = e.target?.result as string;
+            const svgContent = await imageToSvg({ photoDataUri: dataUri, prompt: '' });
+            
+            const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            const newFileName = file.name.replace(/\.[^/.]+$/, '_converted.svg');
+            link.download = newFileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toast({ title: 'SVG Conversion Successful', description: `Your new file "${newFileName}" is downloading.` });
+        };
+        reader.readAsDataURL(file);
+    } catch (error) {
+        console.error(error);
+        toast({
+            variant: 'destructive',
+            title: 'Error Converting to SVG',
+            description: 'There was an issue converting your image.',
+        });
+    } finally {
+        setIsConvertingToSvg(false);
+        if (event.target) event.target.value = '';
+    }
   };
 
 
@@ -540,9 +585,14 @@ export function PdfEditor() {
                         <ImagePlus className="mr-2 h-6 w-6" />
                         Image to PDF
                     </Button>
+                     <Button size="lg" variant="outline" onClick={() => imageToSvgInputRef.current?.click()} className="text-lg py-6 px-8" disabled={isConvertingToSvg}>
+                        {isConvertingToSvg ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <FileJson className="mr-2 h-6 w-6" />}
+                        Image to SVG
+                    </Button>
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
                 <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
+                <input type="file" ref={imageToSvgInputRef} onChange={handleImageToSvg} accept="image/*" className="hidden" />
             </CardContent>
         </Card>
 
