@@ -21,10 +21,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from './ui/dropdown-menu';
 import { imageToSvg } from '@/ai/flows/image-to-svg';
 import { extractStructuredData } from '@/ai/flows/extract-structured-data';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
