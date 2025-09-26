@@ -28,7 +28,7 @@ type Page = {
 
 type PdfSource = {
   file: File;
-  arrayBuffer: ArrayBuffer;
+  arrayBufferForPdfLib: ArrayBuffer;
   pdfjsDoc: pdfjsLib.PDFDocumentProxy;
 };
 
@@ -63,11 +63,12 @@ export function PdfEditor() {
     }
     try {
       const arrayBuffer = await file.arrayBuffer();
+      const arrayBufferForPdfLib = arrayBuffer.slice(0); // Create a copy for pdf-lib
       const pdfjsDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       
       setPdfSources(prev => {
         const newSources = [...prev];
-        newSources[sourceIndex] = { file, arrayBuffer, pdfjsDoc };
+        newSources[sourceIndex] = { file, arrayBufferForPdfLib, pdfjsDoc };
         return newSources;
       });
 
@@ -271,7 +272,7 @@ export function PdfEditor() {
     try {
       const newPdf = await PDFDocument.create();
       const sourcePdfDocs = pdfSources.length > 0 ? await Promise.all(
-        pdfSources.map(source => PDFDocument.load(source.arrayBuffer.slice(0)))
+        pdfSources.map(source => PDFDocument.load(source.arrayBufferForPdfLib))
       ) : [];
 
       for (const page of pages) {
@@ -454,5 +455,3 @@ export function PdfEditor() {
     </div>
   );
 }
-
-    
