@@ -24,6 +24,7 @@ import { Textarea } from './ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from './ui/dropdown-menu';
 import { imageToSvg } from '@/ai/flows/image-to-svg';
 import { extractStructuredData } from '@/ai/flows/extract-structured-data';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -943,92 +944,101 @@ export function PdfEditor() {
                 </DialogContent>
             </Dialog>
 
-            <DropdownMenu>
-              <div className="flex items-center rounded-md border">
-                <Button onClick={handleDownload} disabled={isDownloading} variant="ghost" className="border-r rounded-r-none">
-                  {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
-                  {getDownloadButtonText()}
-                </Button>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-l-none" disabled={isDownloading}>
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </div>
-              <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuLabel>Download Format</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={downloadFormat} onValueChange={(value) => setDownloadFormat(value as DownloadFormat)}>
-                    <DropdownMenuRadioItem value="pdf">
-                        <Image className="mr-2 h-4 w-4" />
-                        <span>PDF Document</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="png">
-                      <Image className="mr-2 h-4 w-4" />
-                      <span>PNG images (.zip)</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="jpeg">
-                      <Image className="mr-2 h-4 w-4" />
-                      <span>JPEG images (.zip)</span>
-                    </DropdownMenuRadioItem>
-                     <DropdownMenuRadioItem value="ppt">
-                        <Presentation className="mr-2 h-4 w-4" />
-                        <span>PowerPoint (.pptx)</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="xlsx">
-                        <FileSpreadsheet className="mr-2 h-4 w-4" />
-                        <span>Excel (.xlsx)</span>
-                    </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>Compression Settings (PDF Only)</DropdownMenuLabel>
-                <div className="p-2 space-y-4">
-                  <div className="flex items-center justify-between space-x-2">
-                      <Label htmlFor="compression-switch" className="flex flex-col space-y-1">
-                          <span>Enable Compression</span>
-                          <span className="font-normal leading-snug text-muted-foreground text-xs">
-                              Reduce file size by compressing images. May reduce image quality.
-                          </span>
-                      </Label>
-                      <Switch id="compression-switch" checked={enableCompression} onCheckedChange={setEnableCompression} disabled={downloadFormat !== 'pdf'}/>
-                  </div>
-                  {enableCompression && downloadFormat === 'pdf' && (
-                      <div className='space-y-2 pt-2'>
-                          <Label htmlFor="target-size">Target File Size</Label>
-                          <div className="flex items-center gap-2">
-                              <Input
-                                  id="target-size"
-                                  type="number"
-                                  value={targetSize}
-                                  onChange={(e) => setTargetSize(Math.max(0, parseFloat(e.target.value) || 0))}
-                                  className="w-full"
-                                  min="0"
-                              />
-                              <Select value={targetUnit} onValueChange={(value: 'MB' | 'KB') => setTargetUnit(value)}>
-                                  <SelectTrigger className="w-32">
-                                      <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                      <SelectItem value="MB">MB</SelectItem>
-                                      <SelectItem value="KB">KB</SelectItem>
-                                  </SelectContent>
-                              </Select>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="outline" size="icon" onClick={handleCompress} disabled={isCompressing}>
-                                    {isCompressing ? <Loader2 className="animate-spin" /> : <Rocket className="h-4 w-4" />}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Resize File</TooltipContent>
-                              </Tooltip>
-                          </div>
-                          {compressedPdfBytes && <p className="text-xs text-muted-foreground pt-1">Ready to download a file of {(compressedPdfBytes.length / 1024 / (targetUnit === 'MB' ? 1024 : 1)).toFixed(2)} {targetUnit}</p>}
-                      </div>
-                  )}
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
+            <div className="flex items-center rounded-md border">
+              <Button onClick={handleDownload} disabled={isDownloading} variant="ghost" className="border-r rounded-r-none">
+                {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
+                {getDownloadButtonText()}
+              </Button>
+              <Popover>
+                  <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" className="rounded-l-none" disabled={isDownloading}>
+                          <Settings className="h-4 w-4" />
+                      </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-96">
+                      <Tabs defaultValue="format" className="w-full">
+                          <TabsList className="grid w-full grid-cols-2">
+                              <TabsTrigger value="format">Format</TabsTrigger>
+                              <TabsTrigger value="compress" disabled={downloadFormat !== 'pdf'}>Compress</TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="format">
+                              <div className="py-4">
+                                  <Label>Download Format</Label>
+                                  <RadioGroup value={downloadFormat} onValueChange={(value) => setDownloadFormat(value as DownloadFormat)} className="mt-2 space-y-1">
+                                      <div className='flex items-center space-x-2'>
+                                          <RadioGroupItem value="pdf" id="pdf" />
+                                          <Label htmlFor="pdf" className="font-normal flex items-center gap-2"><Image className="h-4 w-4" />PDF Document</Label>
+                                      </div>
+                                      <div className='flex items-center space-x-2'>
+                                          <RadioGroupItem value="png" id="png" />
+                                          <Label htmlFor="png" className="font-normal flex items-center gap-2"><Image className="h-4 w-4" />PNG images (.zip)</Label>
+                                      </div>
+                                      <div className='flex items-center space-x-2'>
+                                          <RadioGroupItem value="jpeg" id="jpeg" />
+                                          <Label htmlFor="jpeg" className="font-normal flex items-center gap-2"><Image className="h-4 w-4" />JPEG images (.zip)</Label>
+                                      </div>
+                                      <div className='flex items-center space-x-2'>
+                                          <RadioGroupItem value="ppt" id="ppt" />
+                                          <Label htmlFor="ppt" className="font-normal flex items-center gap-2"><Presentation className="h-4 w-4" />PowerPoint (.pptx)</Label>
+                                      </div>
+                                      <div className='flex items-center space-x-2'>
+                                          <RadioGroupItem value="xlsx" id="xlsx" />
+                                          <Label htmlFor="xlsx" className="font-normal flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" />Excel (.xlsx)</Label>
+                                      </div>
+                                  </RadioGroup>
+                              </div>
+                          </TabsContent>
+                          <TabsContent value="compress">
+                              <div className="py-4 space-y-4">
+                                  <div className="flex items-center justify-between space-x-2">
+                                      <Label htmlFor="compression-switch" className="flex flex-col space-y-1">
+                                          <span>Enable Compression</span>
+                                          <span className="font-normal leading-snug text-muted-foreground text-xs">
+                                              Reduce file size by compressing images. May reduce quality.
+                                          </span>
+                                      </Label>
+                                      <Switch id="compression-switch" checked={enableCompression} onCheckedChange={setEnableCompression} />
+                                  </div>
+                                  {enableCompression && (
+                                      <div className='space-y-2 pt-2'>
+                                          <Label htmlFor="target-size">Target File Size</Label>
+                                          <div className="flex items-center gap-2">
+                                              <Input
+                                                  id="target-size"
+                                                  type="number"
+                                                  value={targetSize}
+                                                  onChange={(e) => setTargetSize(Math.max(0, parseFloat(e.target.value) || 0))}
+                                                  className="w-full"
+                                                  min="0"
+                                              />
+                                              <Select value={targetUnit} onValueChange={(value: 'MB' | 'KB') => setTargetUnit(value)}>
+                                                  <SelectTrigger className="w-32">
+                                                      <SelectValue />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                      <SelectItem value="MB">MB</SelectItem>
+                                                      <SelectItem value="KB">KB</SelectItem>
+                                                  </SelectContent>
+                                              </Select>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <Button variant="outline" size="icon" onClick={handleCompress} disabled={isCompressing}>
+                                                    {isCompressing ? <Loader2 className="animate-spin" /> : <Rocket className="h-4 w-4" />}
+                                                  </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Resize File</TooltipContent>
+                                              </Tooltip>
+                                          </div>
+                                          {compressedPdfBytes && <p className="text-xs text-muted-foreground pt-1">Ready to download a file of {(compressedPdfBytes.length / 1024 / (targetUnit === 'MB' ? 1024 : 1)).toFixed(2)} {targetUnit}</p>}
+                                      </div>
+                                  )}
+                              </div>
+                          </TabsContent>
+                      </Tabs>
+                  </PopoverContent>
+              </Popover>
+            </div>
+            
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
             <input type="file" ref={mergeFileInputRef} onChange={handleMergeFileChange} accept="application/pdf" className="hidden" />
             <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
@@ -1077,3 +1087,5 @@ export function PdfEditor() {
     </div>
   );
 }
+
+    
