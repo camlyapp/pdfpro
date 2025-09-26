@@ -1443,7 +1443,7 @@ const handleDownloadAsWord = async () => {
   if (pages.length === 0) {
     return (
       <div className='space-y-12'>
-        <Card className="max-w-4xl mx-auto text-center shadow-lg border-2 border-primary/20">
+        <Card className="max-w-6xl mx-auto text-center shadow-lg border-2 border-primary/20">
             <CardHeader>
                 <CardTitle className="text-3xl font-bold tracking-tight">The Ultimate PDF Toolkit</CardTitle>
                 <CardDescription className="text-lg text-muted-foreground">
@@ -1451,7 +1451,7 @@ const handleDownloadAsWord = async () => {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                      <ToolCard
                         icon={<FileUp className="h-8 w-8 text-primary" />}
                         title="Upload PDF"
