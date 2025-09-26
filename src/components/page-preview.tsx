@@ -62,8 +62,8 @@ export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScal
       );
     }
     if (page.image) {
-      const imageStyle = page.isFromImage ? { transform: `scale(${page.imageScale ?? 1})` } : {};
-      return <Image src={page.image} alt={`Page ${pageNumber}`} fill className="object-contain transition-transform" style={imageStyle}/>;
+      const imageStyle: React.CSSProperties = page.isFromImage ? { transform: `scale(${page.imageScale ?? 1})`, transition: 'transform 0.2s ease-out' } : {};
+      return <Image src={page.image} alt={`Page ${pageNumber}`} fill className="object-contain" style={imageStyle}/>;
     }
     return (
       <div className="w-full h-full flex items-center justify-center bg-muted">
@@ -79,7 +79,7 @@ export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScal
 
   return (
     <Card ref={ref} className="group relative overflow-hidden shadow-md hover:shadow-primary/20 hover:shadow-lg transition-shadow duration-300">
-      <CardContent className="p-0 aspect-[210/297] relative">
+      <CardContent className="p-0 aspect-[210/297] relative overflow-hidden">
         {renderContent()}
         <Badge variant="secondary" className="absolute top-2 left-2">{pageNumber}</Badge>
         <div className="absolute top-1 right-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
