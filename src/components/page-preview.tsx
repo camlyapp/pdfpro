@@ -46,28 +46,33 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible }
     observer.observe(ref.current);
 
     return () => observer.disconnect();
-  }, [onVisible]);
+  }, [onVisible, page.id]);
+
+  const renderContent = () => {
+    if (page.isNew) {
+      return (
+        <div className="w-full h-full flex items-center justify-center bg-white border">
+          <div className="text-center text-muted-foreground">
+            <File className="mx-auto h-12 w-12"/>
+            <p>Blank Page</p>
+          </div>
+        </div>
+      );
+    }
+    if (page.image) {
+      return <Image src={page.image} alt={`Page ${pageNumber}`} fill className="object-contain" />;
+    }
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-muted">
+        <Skeleton className="w-full h-full" />
+      </div>
+    );
+  };
 
   return (
     <Card ref={ref} className="group relative overflow-hidden shadow-md hover:shadow-primary/20 hover:shadow-lg transition-shadow duration-300">
       <CardContent className="p-0 aspect-[210/297] relative">
-        {page.isNew && !page.image && (
-          <div className="w-full h-full flex items-center justify-center bg-white border">
-            <div className="text-center text-muted-foreground">
-              <File className="mx-auto h-12 w-12"/>
-              <p>Blank Page</p>
-            </div>
-          </div>
-        )}
-        {page.image ? (
-          <Image src={page.image} alt={`Page ${pageNumber}`} fill className="object-contain" />
-        ) : (
-          !page.isNew && (
-            <div className="w-full h-full flex items-center justify-center bg-muted">
-              <Skeleton className="w-full h-full" />
-            </div>
-          )
-        )}
+        {renderContent()}
         <Badge variant="secondary" className="absolute top-2 left-2">{pageNumber}</Badge>
         <div className="absolute top-1 right-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Tooltip>
@@ -111,7 +116,7 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible }
               size="icon"
               className="h-8 w-8"
               onClick={() => onAnalyze(page.id)}
-              disabled={page.isAnalyzing || !page.image || page.isNew}
+              disabled={page.isAnalyzing || page.isNew || !page.image}
             >
               {page.isAnalyzing ? <Loader2 className="animate-spin" /> : <Sparkles />}
             </Button>
@@ -136,5 +141,3 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible }
     </Card>
   );
 }
-
-    

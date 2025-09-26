@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useCallback, ChangeEvent, useEffect } from 'react';
-import { PDFDocument, PDFPage, rgb } from 'pdf-lib';
+import { useState, useRef, useCallback, ChangeEvent } from 'react';
+import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 
 import { Button } from '@/components/ui/button';
@@ -9,64 +9,66 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { analyzePageLayout } from '@/lib/actions';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2 } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine } from 'lucide-react';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 type Page = {
   id: number;
   image?: string;
-  originalIndex: number;
+  originalIndex: number; // For existing pages from original PDF
+  pdfSourceIndex: number; // 0 for original, 1+ for merged PDFs
   analysis?: string;
   isAnalyzing?: boolean;
-  isNew?: boolean;
+  isNew?: boolean; // For blank pages
 };
 
-let pdfDoc: pdfjsLib.PDFDocumentProxy | null = null;
+type PdfSource = {
+  file: File;
+  arrayBuffer: ArrayBuffer;
+  pdfjsDoc: pdfjsLib.PDFDocumentProxy;
+};
 
 export function PdfEditor() {
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [pdfArrayBuffer, setPdfArrayBuffer] = useState<ArrayBuffer | null>(null);
+  const [pdfSources, setPdfSources] = useState<PdfSource[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mergeFileInputRef = useRef<HTMLInputElement>(null);
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
   const { toast } = useToast();
 
-  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || file.type !== 'application/pdf') {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid File',
-        description: 'Please select a valid PDF file.',
-      });
-      return;
-    }
-    setPdfFile(file);
-    await processPdf(file);
-  };
-
-  const processPdf = async (file: File) => {
+  const processAndSetPdf = async (file: File, sourceIndex: number) => {
     setIsLoading(true);
-    setPages([]);
+    if (sourceIndex === 0) {
+      setPages([]);
+    }
     try {
       const arrayBuffer = await file.arrayBuffer();
-      setPdfArrayBuffer(arrayBuffer);
-      pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const numPages = pdfDoc.numPages;
-      const initialPages: Page[] = [];
+      const pdfjsDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      
+      setPdfSources(prev => {
+        const newSources = [...prev];
+        newSources[sourceIndex] = { file, arrayBuffer, pdfjsDoc };
+        return newSources;
+      });
+
+      const numPages = pdfjsDoc.numPages;
+      const newPages: Page[] = [];
 
       for (let i = 1; i <= numPages; i++) {
-        initialPages.push({
-          id: Date.now() + i,
+        newPages.push({
+          id: Date.now() + i + Math.random(),
           originalIndex: i - 1,
+          pdfSourceIndex: sourceIndex,
         });
       }
-      setPages(initialPages);
+      setPages(prev => [...prev, ...newPages]);
+
     } catch (error) {
       console.error(error);
       toast({
@@ -78,30 +80,55 @@ export function PdfEditor() {
       setIsLoading(false);
     }
   };
+  
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || file.type !== 'application/pdf') {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid File',
+        description: 'Please select a valid PDF file.',
+      });
+      return;
+    }
+    setPdfSources([]);
+    await processAndSetPdf(file, 0);
+  };
+  
+  const handleMergeFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || file.type !== 'application/pdf') {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid File',
+        description: 'Please select a valid PDF file.',
+      });
+      return;
+    }
+    setIsMerging(true);
+    await processAndSetPdf(file, pdfSources.length);
+    setIsMerging(false);
+    toast({ title: 'PDF Merged', description: `Added pages from "${file.name}".`});
+    if (event.target) event.target.value = '';
+  };
+
 
   const renderPage = useCallback(async (pageId: number) => {
     const pageIndex = pages.findIndex((p) => p.id === pageId);
-    if (pageIndex === -1 || pages[pageIndex].image || !pdfDoc) return;
+    if (pageIndex === -1 || pages[pageIndex].image) return;
 
     const pageData = pages[pageIndex];
+
     if (pageData.isNew) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 595; // A4 width in points
-      canvas.height = 842; // A4 height in points
-      const context = canvas.getContext('2d');
-      if (context) {
-        context.fillStyle = 'white';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-      }
-      const imageUrl = canvas.toDataURL('image/jpeg', 0.5);
-      setPages((prev) =>
-        prev.map((p) => (p.id === pageId ? { ...p, image: imageUrl } : p))
-      );
+      // It's a blank page, no rendering needed as it's handled in PagePreview
       return;
     }
+    
+    const source = pdfSources[pageData.pdfSourceIndex];
+    if (!source) return;
 
     try {
-      const page = await pdfDoc.getPage(pageData.originalIndex + 1);
+      const page = await source.pdfjsDoc.getPage(pageData.originalIndex + 1);
       const viewport = page.getViewport({ scale: 1.0 });
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
@@ -116,9 +143,9 @@ export function PdfEditor() {
         );
       }
     } catch (error) {
-      console.error(`Failed to render page ${pageData.originalIndex + 1}`, error);
+      console.error(`Failed to render page ${pageData.originalIndex + 1} from source ${pageData.pdfSourceIndex}`, error);
     }
-  }, [pages]);
+  }, [pages, pdfSources]);
 
   const handleDragEnd = () => {
     if (draggedItemIndex.current !== null && dragOverItemIndex.current !== null) {
@@ -139,7 +166,8 @@ export function PdfEditor() {
   const handleAddPage = () => {
     const newPage: Page = {
       id: Date.now(),
-      originalIndex: -1, // Indicates a new page
+      originalIndex: -1,
+      pdfSourceIndex: -1,
       isNew: true,
     };
     setPages(prev => [...prev, newPage]);
@@ -155,7 +183,6 @@ export function PdfEditor() {
 
     setPages((prev) => prev.map((p) => (p.id === id ? { ...p, isAnalyzing: true } : p)));
 
-
     const result = await analyzePageLayout(pageToAnalyze.image);
 
     if (result.success) {
@@ -168,18 +195,21 @@ export function PdfEditor() {
   }, [pages, toast]);
 
   const handleDownload = async () => {
-    if (!pdfArrayBuffer || pages.length === 0) return;
+    if (pdfSources.length === 0 || pages.length === 0) return;
 
     setIsDownloading(true);
     try {
-      const originalPdf = await PDFDocument.load(pdfArrayBuffer);
       const newPdf = await PDFDocument.create();
+      const sourcePdfDocs = await Promise.all(
+        pdfSources.map(source => PDFDocument.load(source.arrayBuffer))
+      );
 
       for (const page of pages) {
         if (page.isNew) {
           newPdf.addPage();
         } else {
-          const [copiedPage] = await newPdf.copyPages(originalPdf, [page.originalIndex]);
+          const sourcePdf = sourcePdfDocs[page.pdfSourceIndex];
+          const [copiedPage] = await newPdf.copyPages(sourcePdf, [page.originalIndex]);
           newPdf.addPage(copiedPage);
         }
       }
@@ -189,7 +219,7 @@ export function PdfEditor() {
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      const newFileName = pdfFile?.name.replace('.pdf', '_edited.pdf') ?? 'edited.pdf';
+      const newFileName = pdfSources[0].file.name.replace('.pdf', '_edited.pdf') ?? 'edited.pdf';
       link.download = newFileName;
       document.body.appendChild(link);
       link.click();
@@ -205,14 +235,12 @@ export function PdfEditor() {
   };
 
   const handleReset = () => {
-    setPdfFile(null);
-    setPdfArrayBuffer(null);
+    setPdfSources([]);
     setPages([]);
-    pdfDoc = null;
     if(fileInputRef.current) fileInputRef.current.value = '';
   }
 
-  if (isLoading) {
+  if (isLoading && pdfSources.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-96">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -226,7 +254,7 @@ export function PdfEditor() {
       <Card className="max-w-xl mx-auto text-center shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl font-headline">Welcome to PDF Live</CardTitle>
-          <CardDescription>Upload, reorder, delete, and download pages from your PDF with a live preview.</CardDescription>
+          <CardDescription>Upload, reorder, delete, merge, and download pages from your PDF with a live preview.</CardDescription>
         </CardHeader>
         <CardContent>
           <Button size="lg" onClick={() => fileInputRef.current?.click()}>
@@ -243,10 +271,10 @@ export function PdfEditor() {
     <div className="space-y-8">
       <div className="flex flex-wrap gap-4 items-center justify-between p-4 bg-card border rounded-lg shadow-sm">
         <div>
-          <h2 className="font-bold text-lg">{pdfFile?.name}</h2>
+          <h2 className="font-bold text-lg">{pdfSources[0]?.file.name}</h2>
           <p className="text-sm text-muted-foreground">{pages.length} pages</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
             <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
                 <Replace /> Change File
             </Button>
@@ -256,11 +284,16 @@ export function PdfEditor() {
             <Button variant="outline" onClick={handleAddPage}>
                 <Plus /> Add Page
             </Button>
+            <Button variant="outline" onClick={() => mergeFileInputRef.current?.click()} disabled={isMerging}>
+                {isMerging ? <Loader2 className="animate-spin" /> : <Combine />}
+                Merge PDF
+            </Button>
             <Button onClick={handleDownload} disabled={isDownloading}>
                 {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
                 Download PDF
             </Button>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
+            <input type="file" ref={mergeFileInputRef} onChange={handleMergeFileChange} accept="application/pdf" className="hidden" />
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
@@ -283,9 +316,17 @@ export function PdfEditor() {
             />
           </div>
         ))}
+        {isMerging && (
+          <Card className="group relative overflow-hidden shadow-md">
+            <CardContent className="p-0 aspect-[210/297] relative flex items-center justify-center bg-muted">
+                <div className="flex flex-col items-center justify-center text-center">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                    <p className="mt-4 text-muted-foreground">Merging...</p>
+                </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
 }
-
-    
