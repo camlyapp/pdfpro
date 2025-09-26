@@ -1304,7 +1304,7 @@ const handleDownloadAsWord = async () => {
                                 Scan to PDF
                             </Button>
                         </DialogTrigger>
-                        <ScanDocument onScanComplete={handleScanComplete} />
+                        <ScanDocument onScanComplete={handleScanComplete} open={isScanDialogOpen} />
                     </Dialog>
                     <Button size="lg" variant="outline" onClick={() => imageFileInputRef.current?.click()} className="text-lg py-6 px-8">
                         <ImagePlus className="mr-2 h-6 w-6" />
@@ -1486,7 +1486,7 @@ const handleDownloadAsWord = async () => {
                                 <Camera /> Scan Page
                             </Button>
                         </DialogTrigger>
-                        <ScanDocument onScanComplete={handleScanComplete} />
+                        <ScanDocument onScanComplete={handleScanComplete} open={isScanDialogOpen} />
                     </Dialog>
                     <Button variant="outline" onClick={() => imageFileInputRef.current?.click()}>
                         <ImagePlus /> Add Image
