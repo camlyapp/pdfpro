@@ -825,10 +825,10 @@ export function PdfEditor() {
         const { PermissionFlag } = PDFDocument;
         saveOptions.userPassword = encryptionPassword;
         saveOptions.ownerPassword = encryptionPassword;
-        saveOptions.permissions = {
-            printing: PermissionFlag.Print,
-            copying: PermissionFlag.Copy,
-        };
+        saveOptions.permissions = [
+            PermissionFlag.Print,
+            PermissionFlag.Copy,
+        ];
     }
 
 
