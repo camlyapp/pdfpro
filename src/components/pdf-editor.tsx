@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -80,6 +80,7 @@ export function PdfEditor() {
   const [isExtractingData, setIsExtractingData] = useState(false);
   const [isConvertingExcel, setIsConvertingExcel] = useState(false);
   const [isConvertingPptx, setIsConvertingPptx] = useState(false);
+  const [isSplitting, setIsSplitting] = useState(false);
   const [extractedData, setExtractedData] = useState('');
   const [ocrPrompt, setOcrPrompt] = useState('Extract the invoice number, date, and total amount.');
   const [enableCompression, setEnableCompression] = useState(false);
@@ -923,6 +924,78 @@ export function PdfEditor() {
     }
 };
 
+ const handleSplitPdf = async () => {
+    if (pages.length === 0) return;
+
+    setIsSplitting(true);
+    toast({ title: 'Splitting PDF...', description: 'This may take a moment.' });
+    
+    try {
+        const zip = new JSZip();
+        const sourcePdfDocs = pdfSources.length > 0 ? await Promise.all(
+            pdfSources.map(source => PDFDocument.load(source.arrayBufferForPdfLib.slice(0)))
+        ) : [];
+
+        for (let i = 0; i < pages.length; i++) {
+            const pageInfo = pages[i];
+            const singlePagePdf = await PDFDocument.create();
+
+            if (pageInfo.isNew) {
+                singlePagePdf.addPage();
+            } else if (pageInfo.isFromImage && pageInfo.imageBytes) {
+                const imageBytesCopy = pageInfo.imageBytes.slice(0);
+                const pageToAdd = singlePagePdf.addPage();
+                
+                const image = pageInfo.imageType === 'image/png' 
+                    ? await singlePagePdf.embedPng(imageBytesCopy)
+                    : await singlePagePdf.embedJpg(imageBytesCopy);
+                
+                const { width, height } = image.scale(1);
+                pageToAdd.setSize(width, height);
+                
+                const scaledDims = image.scale(pageInfo.imageScale ?? 1);
+                const x = (pageToAdd.getWidth() - scaledDims.width) / 2;
+                const y = (pageToAdd.getHeight() - scaledDims.height) / 2;
+
+                pageToAdd.drawImage(image, { 
+                    x, y,
+                    width: scaledDims.width,
+                    height: scaledDims.height 
+                });
+            } else {
+                if (pageInfo.pdfSourceIndex < 0 || pageInfo.pdfSourceIndex >= sourcePdfDocs.length) continue;
+                const sourcePdf = sourcePdfDocs[pageInfo.pdfSourceIndex];
+                if (sourcePdf) {
+                    const [copiedPage] = await singlePagePdf.copyPages(sourcePdf, [pageInfo.originalIndex]);
+                    singlePagePdf.addPage(copiedPage);
+                }
+            }
+            
+            const pdfBytes = await singlePagePdf.save();
+            zip.file(`page_${i + 1}.pdf`, pdfBytes);
+        }
+
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(zipBlob);
+        const newFileName = pdfSources[0]?.file.name.replace(/\.pdf$/i, '_split.zip') ?? 'split_pages.zip';
+        link.download = newFileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast({ title: 'Download Started', description: `Your split PDFs are downloading as "${newFileName}".` });
+    } catch (error) {
+        console.error("Error splitting PDF:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Error Splitting PDF',
+            description: 'An unexpected error occurred while splitting the PDF.',
+        });
+    } finally {
+        setIsSplitting(false);
+    }
+ };
+
 
   const handleReset = () => {
     setPdfSources([]);
@@ -1220,6 +1293,10 @@ export function PdfEditor() {
                         {isMerging ? <Loader2 className="animate-spin" /> : <Combine />}
                         Merge PDF
                     </Button>
+                    <Button variant="outline" onClick={handleSplitPdf} disabled={isSplitting}>
+                      {isSplitting ? <Loader2 className="animate-spin" /> : <Split />}
+                      Split PDF
+                    </Button>
                     <Dialog>
                         <DialogTrigger asChild>
                             <Button variant="outline">
@@ -1328,3 +1405,4 @@ export function PdfEditor() {
     
 
     
+
