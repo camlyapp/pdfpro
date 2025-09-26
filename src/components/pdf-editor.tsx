@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, ChangeEvent } from 'react';
-import { PDFDocument, rgb } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import JSZip from 'jszip';
 import pptxgen from 'pptxgenjs';
@@ -69,6 +69,7 @@ export function PdfEditor() {
   const [isMerging, setIsMerging] = useState(false);
   const [isConvertingToSvg, setIsConvertingToSvg] = useState(false);
   const [isExtractingData, setIsExtractingData] = useState(false);
+  const [isConvertingExcel, setIsConvertingExcel] = useState(false);
   const [extractedData, setExtractedData] = useState('');
   const [ocrPrompt, setOcrPrompt] = useState('Extract the invoice number, date, and total amount.');
   const [enableCompression, setEnableCompression] = useState(false);
@@ -82,6 +83,7 @@ export function PdfEditor() {
   const mergeFileInputRef = useRef<HTMLInputElement>(null);
   const imageFileInputRef = useRef<HTMLInputElement>(null);
   const imageToSvgInputRef = useRef<HTMLInputElement>(null);
+  const excelFileInputRef = useRef<HTMLInputElement>(null);
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
   const { toast } = useToast();
@@ -267,6 +269,129 @@ export function PdfEditor() {
         if (event.target) event.target.value = '';
     }
   };
+
+  const handleExcelFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = [
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+
+    if (!validTypes.includes(file.type)) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid File',
+            description: 'Please select a valid Excel file (.xls, .xlsx).',
+        });
+        return;
+    }
+
+    setIsConvertingExcel(true);
+    toast({ title: 'Converting Excel to PDF...', description: 'This might take a moment.' });
+
+    try {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        const pdfDoc = await PDFDocument.create();
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+        for (const sheetName of workbook.SheetNames) {
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+
+            if (jsonData.length === 0) continue;
+            
+            const page = pdfDoc.addPage();
+            const { width, height } = page.getSize();
+            const margin = 40;
+            const tableTop = height - margin - 20;
+
+            // Draw header
+            page.drawText(sheetName, {
+                x: margin,
+                y: height - margin,
+                font: boldFont,
+                size: 18,
+            });
+
+            // Basic table rendering logic
+            const table = {
+                headers: jsonData[0],
+                rows: jsonData.slice(1),
+            };
+
+            const numCols = table.headers.length;
+            const colWidth = (width - 2 * margin) / numCols;
+            const rowHeight = 20;
+            const headerSize = 10;
+            const rowSize = 9;
+
+            // Draw headers
+            let y = tableTop;
+            table.headers.forEach((header, i) => {
+                page.drawText(String(header), {
+                    x: margin + i * colWidth + 5,
+                    y: y - rowHeight / 2,
+                    font: boldFont,
+                    size: headerSize,
+                    color: rgb(0, 0, 0),
+                });
+            });
+            y -= rowHeight;
+            page.drawLine({
+                start: { x: margin, y: y },
+                end: { x: width - margin, y: y },
+                thickness: 1.5,
+            });
+
+            // Draw rows
+            for (const row of table.rows) {
+                 if (y < margin + rowHeight) {
+                    const newPage = pdfDoc.addPage();
+                    // Copy functionality to new page if needed, for now just reset y
+                    y = newPage.getHeight() - margin;
+                }
+
+                row.forEach((cell, i) => {
+                    page.drawText(String(cell ?? ''), {
+                        x: margin + i * colWidth + 5,
+                        y: y - rowHeight / 2,
+                        font,
+                        size: rowSize,
+                        color: rgb(0.2, 0.2, 0.2),
+                    });
+                });
+                y -= rowHeight;
+                 page.drawLine({
+                    start: { x: margin, y: y },
+                    end: { x: width - margin, y: y },
+                    thickness: 0.5,
+                });
+            }
+        }
+        
+        const pdfBytes = await pdfDoc.save();
+        const pdfFile = new File([pdfBytes], file.name.replace(/\.(xlsx|xls)$/, '.pdf'), { type: 'application/pdf' });
+        
+        await processAndSetPdf(pdfFile, 0);
+
+        toast({ title: 'Excel converted to PDF successfully!' });
+    } catch (error) {
+        console.error("Error converting Excel to PDF:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Conversion Failed',
+            description: 'There was an error converting the Excel file to PDF.',
+        });
+    } finally {
+        setIsConvertingExcel(false);
+        if (event.target) event.target.value = '';
+    }
+};
+
 
 
   const renderPage = useCallback(async (pageId: number) => {
@@ -812,7 +937,7 @@ export function PdfEditor() {
   if (pages.length === 0) {
     return (
       <div className='space-y-12'>
-        <Card className="max-w-2xl mx-auto text-center shadow-lg border-2 border-primary/20">
+        <Card className="max-w-3xl mx-auto text-center shadow-lg border-2 border-primary/20">
             <CardHeader>
                 <CardTitle className="text-3xl font-bold tracking-tight">The Ultimate PDF Toolkit</CardTitle>
                 <CardDescription className="text-lg text-muted-foreground">
@@ -820,7 +945,7 @@ export function PdfEditor() {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="flex justify-center gap-4">
+                <div className="flex justify-center gap-4 flex-wrap">
                     <Button size="lg" onClick={() => fileInputRef.current?.click()} className="text-lg py-6 px-8">
                         <FileUp className="mr-2 h-6 w-6" />
                         Upload PDF
@@ -833,10 +958,15 @@ export function PdfEditor() {
                         {isConvertingToSvg ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <FileJson className="mr-2 h-6 w-6" />}
                         Image to SVG
                     </Button>
+                    <Button size="lg" variant="outline" onClick={() => excelFileInputRef.current?.click()} className="text-lg py-6 px-8" disabled={isConvertingExcel}>
+                        {isConvertingExcel ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <FileSpreadsheet className="mr-2 h-6 w-6" />}
+                        Excel to PDF
+                    </Button>
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
                 <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
                 <input type="file" ref={imageToSvgInputRef} onChange={handleImageToSvg} accept="image/*" className="hidden" />
+                <input type="file" ref={excelFileInputRef} onChange={handleExcelFileChange} accept=".xlsx, .xls" className="hidden" />
             </CardContent>
         </Card>
 
