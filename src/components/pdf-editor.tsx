@@ -86,6 +86,7 @@ export function PdfEditor() {
   const [isConvertingExcel, setIsConvertingExcel] = useState(false);
   const [isConvertingPptx, setIsConvertingPptx] = useState(false);
   const [isConvertingWord, setIsConvertingWord] = useState(false);
+  const [isConvertingHtml, setIsConvertingHtml] = useState(false);
   const [isSplitting, setIsSplitting] = useState(false);
   const [isScanDialogOpen, setIsScanDialogOpen] = useState(false);
   const [extractedData, setExtractedData] = useState('');
@@ -104,6 +105,7 @@ export function PdfEditor() {
   const excelFileInputRef = useRef<HTMLInputElement>(null);
   const pptxFileInputRef = useRef<HTMLInputElement>(null);
   const wordFileInputRef = useRef<HTMLInputElement>(null);
+  const htmlFileInputRef = useRef<HTMLInputElement>(null);
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
   const { toast } = useToast();
@@ -589,7 +591,81 @@ export function PdfEditor() {
     }
   };
 
+  const handleHtmlFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
+    if (!file.type.includes('html')) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid File',
+            description: 'Please select a valid HTML file (.html).',
+        });
+        return;
+    }
+
+    setIsConvertingHtml(true);
+    toast({ title: 'Converting HTML to PDF...', description: 'This may take a moment.' });
+
+    try {
+        const html = await file.text();
+
+        const tempContainer = document.createElement('div');
+        tempContainer.innerHTML = html;
+        tempContainer.style.width = '210mm'; // A4 width
+        tempContainer.style.padding = '15mm';
+        tempContainer.style.boxSizing = 'border-box';
+        document.body.appendChild(tempContainer);
+        
+        const canvas = await html2canvas(tempContainer, {
+            scale: 2, // Higher scale for better quality
+            useCORS: true,
+        });
+        
+        document.body.removeChild(tempContainer);
+
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const ratio = canvasWidth / canvasHeight;
+        
+        const imgWidth = pdfWidth;
+        const imgHeight = imgWidth / ratio;
+        
+        let heightLeft = imgHeight;
+        let position = 0;
+        
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pdfHeight;
+        }
+
+        const pdfBytes = pdf.output('arraybuffer');
+        const pdfFile = new File([pdfBytes], file.name.replace(/\.html?$/, '.pdf'), { type: 'application/pdf' });
+
+        await processAndSetPdf(pdfFile, 0);
+
+        toast({ title: 'HTML converted to PDF successfully!' });
+    } catch (error) {
+        console.error("Error converting HTML to PDF:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Conversion Failed',
+            description: 'There was an error converting the HTML file to PDF.',
+        });
+    } finally {
+        setIsConvertingHtml(false);
+        if (event.target) event.target.value = '';
+    }
+  };
 
   const renderPage = useCallback(async (pageId: number) => {
     const pageIndex = pages.findIndex((p) => p.id === pageId);
@@ -1326,6 +1402,10 @@ const handleDownloadAsWord = async () => {
                         {isConvertingWord ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <FileText className="mr-2 h-6 w-6" />}
                         Word to PDF
                     </Button>
+                    <Button size="lg" variant="outline" onClick={() => htmlFileInputRef.current?.click()} className="text-lg py-6 px-8" disabled={isConvertingHtml}>
+                        {isConvertingHtml ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <FileText className="mr-2 h-6 w-6" />}
+                        HTML to PDF
+                    </Button>
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
                 <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
@@ -1333,6 +1413,7 @@ const handleDownloadAsWord = async () => {
                 <input type="file" ref={excelFileInputRef} onChange={handleExcelFileChange} accept=".xlsx, .xls" className="hidden" />
                 <input type="file" ref={pptxFileInputRef} onChange={handlePptxFileChange} accept=".pptx" className="hidden" />
                 <input type="file" ref={wordFileInputRef} onChange={handleWordFileChange} accept=".docx" className="hidden" />
+                <input type="file" ref={htmlFileInputRef} onChange={handleHtmlFileChange} accept=".html,.htm" className="hidden" />
             </CardContent>
         </Card>
 
@@ -1559,6 +1640,7 @@ const handleDownloadAsWord = async () => {
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
         <input type="file" ref={mergeFileInputRef} onChange={handleMergeFileChange} accept="application/pdf" className="hidden" />
         <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
+        <input type="file" ref={htmlFileInputRef} onChange={handleHtmlFileChange} accept=".html,.htm" className="hidden" />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
         {pages.map((page, index) => (
