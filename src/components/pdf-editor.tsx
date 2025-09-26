@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { analyzePageLayout } from '@/lib/actions';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info } from 'lucide-react';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
@@ -363,9 +363,14 @@ export function PdfEditor() {
           </Card>
         )}
       </div>
-      <div className="p-6 bg-accent/50 text-accent-foreground/80 rounded-lg">
-        <h3 className="font-semibold text-lg mb-2 text-accent-foreground">Pro-Tip!</h3>
-        <p className="text-sm">Use the <FilePlus className="inline h-4 w-4" /> 'Add Page' button to insert blank pages anywhere in your document, perfect for adding notes or section breaks.</p>
+      <div className="p-4 bg-muted/50 rounded-lg flex items-start gap-4">
+        <div className='p-2 bg-primary/10 rounded-full'>
+          <Info className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+            <h3 className="font-semibold text-foreground">Pro-Tip!</h3>
+            <p className="text-sm text-muted-foreground">Use the <FilePlus className="inline h-4 w-4" /> 'Add Page' button to insert blank pages anywhere in your document, perfect for adding notes or section breaks.</p>
+        </div>
       </div>
     </div>
   );
