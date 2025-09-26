@@ -8,13 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Switch } from './ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
+
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
@@ -55,7 +57,6 @@ export function PdfEditor() {
   const [enableCompression, setEnableCompression] = useState(false);
   const [targetSize, setTargetSize] = useState<number>(1);
   const [targetUnit, setTargetUnit] = useState<'MB' | 'KB'>('MB');
-  const [compressionPopoverOpen, setCompressionPopoverOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mergeFileInputRef = useRef<HTMLInputElement>(null);
@@ -341,7 +342,6 @@ export function PdfEditor() {
     if (pages.length === 0) return;
 
     setIsDownloading(true);
-    setCompressionPopoverOpen(false);
     try {
       let pdfBytes: Uint8Array;
 
@@ -479,66 +479,60 @@ export function PdfEditor() {
                 {isMerging ? <Loader2 className="animate-spin" /> : <Combine />}
                 Merge PDF
             </Button>
+            
+            <DropdownMenu>
+              <div className="flex items-center rounded-md border">
+                <Button onClick={handleDownload} disabled={isDownloading} variant="ghost" className="border-r rounded-r-none">
+                  {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
+                  Download
+                </Button>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-l-none" disabled={isDownloading}>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </div>
+              <DropdownMenuContent align="end" className="w-80" onClick={(e) => e.preventDefault()}>
+                <DropdownMenuLabel>Compression Settings</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <div className="p-2 space-y-4">
+                  <div className="flex items-center justify-between space-x-2">
+                      <Label htmlFor="compression-switch" className="flex flex-col space-y-1">
+                          <span>Enable Compression</span>
+                          <span className="font-normal leading-snug text-muted-foreground text-xs">
+                              Reduce file size by compressing images. May reduce image quality.
+                          </span>
+                      </Label>
+                      <Switch id="compression-switch" checked={enableCompression} onCheckedChange={setEnableCompression} />
+                  </div>
+                  {enableCompression && (
+                      <div className='space-y-2 pt-2'>
+                          <Label htmlFor="target-size">Target File Size</Label>
+                          <div className="flex gap-2">
+                              <Input
+                                  id="target-size"
+                                  type="number"
+                                  value={targetSize}
+                                  onChange={(e) => setTargetSize(Math.max(0, parseFloat(e.target.value)))}
+                                  className="w-2/3"
+                                  min="0"
+                              />
+                              <Select value={targetUnit} onValueChange={(value: 'MB' | 'KB') => setTargetUnit(value)}>
+                                  <SelectTrigger className="w-1/3">
+                                      <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                      <SelectItem value="MB">MB</SelectItem>
+                                      <SelectItem value="KB">KB</SelectItem>
+                                  </SelectContent>
+                              </Select>
+                          </div>
+                      </div>
+                  )}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-            <Popover open={compressionPopoverOpen} onOpenChange={setCompressionPopoverOpen}>
-                <PopoverTrigger asChild>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="outline" className={enableCompression ? 'border-primary' : ''}>
-                                <Gauge />
-                                Compress
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Compression Settings</TooltipContent>
-                    </Tooltip>
-                </PopoverTrigger>
-                <PopoverContent className="w-80" align="end">
-                    <div className="grid gap-4">
-                        <div className="space-y-2">
-                            <h4 className="font-medium leading-none">PDF Compression</h4>
-                            <p className="text-sm text-muted-foreground">
-                                Reduce file size by compressing images. May reduce image quality.
-                            </p>
-                        </div>
-                        <div className="grid gap-2">
-                            <div className="flex items-center space-x-2">
-                                <Switch id="compression-switch" checked={enableCompression} onCheckedChange={setEnableCompression} />
-                                <Label htmlFor="compression-switch">Enable Compression</Label>
-                            </div>
-                            {enableCompression && (
-                                <div className='space-y-4 pt-4'>
-                                    <Label htmlFor="target-size">Target File Size</Label>
-                                    <div className="flex gap-2">
-                                        <Input
-                                            id="target-size"
-                                            type="number"
-                                            value={targetSize}
-                                            onChange={(e) => setTargetSize(Math.max(0, parseFloat(e.target.value)))}
-                                            className="w-2/3"
-                                            min="0"
-                                        />
-                                        <Select value={targetUnit} onValueChange={(value: 'MB' | 'KB') => setTargetUnit(value)}>
-                                            <SelectTrigger className="w-1/3">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="MB">MB</SelectItem>
-                                                <SelectItem value="KB">KB</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </PopoverContent>
-            </Popover>
-
-
-            <Button onClick={handleDownload} disabled={isDownloading}>
-                {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
-                Download PDF
-            </Button>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
             <input type="file" ref={mergeFileInputRef} onChange={handleMergeFileChange} accept="application/pdf" className="hidden" />
             <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
