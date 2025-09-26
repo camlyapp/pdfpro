@@ -7,7 +7,6 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { analyzePageLayout } from '@/lib/actions';
 import { PagePreview } from '@/components/page-preview';
 import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus } from 'lucide-react';
 
@@ -18,8 +17,6 @@ type Page = {
   image?: string;
   originalIndex: number; // For existing pages from original PDF
   pdfSourceIndex: number; // 0 for original, 1+ for merged PDFs
-  analysis?: string;
-  isAnalyzing?: boolean;
   isNew?: boolean; // For blank pages
   isFromImage?: boolean; // For pages created from an image
   imageBytes?: ArrayBuffer; // For pages created from an image
@@ -253,26 +250,6 @@ export function PdfEditor() {
     setPages(prev => prev.map(p => p.id === id ? { ...p, imageScale: scale } : p));
   };
 
-  const handleAnalyzePage = useCallback(async (id: number) => {
-    const pageToAnalyze = pages.find((p) => p.id === id);
-    if (!pageToAnalyze || !pageToAnalyze.image) {
-      toast({ variant: 'destructive', title: 'Cannot Analyze', description: 'Page image is not available yet.' });
-      return;
-    };
-
-    setPages((prev) => prev.map((p) => (p.id === id ? { ...p, isAnalyzing: true } : p)));
-
-    const result = await analyzePageLayout(pageToAnalyze.image);
-
-    if (result.success) {
-      setPages((prev) => prev.map((p) => (p.id === id ? { ...p, isAnalyzing: false, analysis: result.analysis } : p)));
-      toast({ title: 'Analysis complete', description: 'Layout feedback is now available.' });
-    } else {
-      setPages((prev) => prev.map((p) => (p.id === id ? { ...p, isAnalyzing: false } : p)));
-      toast({ variant: 'destructive', title: 'Analysis Failed', description: result.error });
-    }
-  }, [pages, toast]);
-
   const handleDownload = async () => {
     if (pages.length === 0) return;
 
@@ -446,7 +423,6 @@ export function PdfEditor() {
               page={page}
               pageNumber={index + 1}
               onDelete={handleDeletePage}
-              onAnalyze={handleAnalyzePage}
               onVisible={() => renderPage(page.id)}
               onImageScaleChange={handleImageScaleChange}
             />

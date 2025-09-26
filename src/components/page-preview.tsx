@@ -6,8 +6,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { GripVertical, Trash2, Sparkles, Loader2, Info, File, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { GripVertical, Trash2, File, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
 import { Slider } from './ui/slider';
@@ -16,8 +15,6 @@ import { Label } from './ui/label';
 type Page = {
   id: number;
   image?: string;
-  analysis?: string;
-  isAnalyzing?: boolean;
   isNew?: boolean;
   isFromImage?: boolean;
   imageScale?: number;
@@ -27,12 +24,11 @@ interface PagePreviewProps {
   page: Page;
   pageNumber: number;
   onDelete: (id: number) => void;
-  onAnalyze: (id: number) => void;
   onVisible: () => void;
   onImageScaleChange: (id: number, scale: number) => void;
 }
 
-export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible, onImageScaleChange }: PagePreviewProps) {
+export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScaleChange }: PagePreviewProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
 
@@ -98,29 +94,6 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible, 
         </div>
       </CardContent>
       <CardFooter className="p-2 bg-card/80 backdrop-blur-sm flex justify-end gap-1">
-        {page.analysis && (
-          <Popover>
-            <PopoverTrigger asChild>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-accent">
-                            <Info />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>View Layout Analysis</TooltipContent>
-                </Tooltip>
-            </PopoverTrigger>
-            <PopoverContent className="w-80">
-                <div className="grid gap-4">
-                    <div className="space-y-2">
-                        <h4 className="font-medium leading-none">Layout Analysis</h4>
-                        <p className="text-sm text-muted-foreground">{page.analysis}</p>
-                    </div>
-                </div>
-            </PopoverContent>
-          </Popover>
-        )}
-
         {page.isFromImage && (
           <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
             <PopoverTrigger asChild>
@@ -173,21 +146,6 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible, 
             </PopoverContent>
           </Popover>
         )}
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onAnalyze(page.id)}
-              disabled={page.isAnalyzing || page.isNew || !page.image}
-            >
-              {page.isAnalyzing ? <Loader2 className="animate-spin" /> : <Sparkles />}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Analyze Layout</TooltipContent>
-        </Tooltip>
 
         <Tooltip>
           <TooltipTrigger asChild>
