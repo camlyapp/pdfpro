@@ -64,12 +64,12 @@ export function Header() {
             <ScrollArea className="max-h-[75vh]">
               <div className="p-4 md:p-6">
                 <h4 className="font-medium leading-none mb-4">All PDF Tools</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                   {ALL_TOOLS.map((tool: Tool) => (
                     <Link
                       key={tool.title}
                       href="/" // All tools are on the home page for now
-                      className="flex items-start gap-4 p-2 rounded-lg hover:bg-accent -m-1"
+                      className="flex items-start gap-4 p-2 rounded-lg transition-all border border-transparent hover:border-border hover:shadow-md hover:bg-card"
                       onClick={() => setIsToolsPopoverOpen(false)}
                     >
                       <div className="p-2 bg-primary/10 rounded-lg mt-1">
