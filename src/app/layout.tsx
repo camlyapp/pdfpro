@@ -5,8 +5,8 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'PDFPro',
-  description: 'Manipulate and preview your PDF files with PDFPro.',
+  title: 'PDFpro',
+  description: 'Manipulate and preview your PDF files with PDFpro.',
 };
 
 export default function RootLayout({
