@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, FilePresentation } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -849,7 +849,7 @@ export function PdfEditor() {
                       <span>JPEG images (.zip)</span>
                     </DropdownMenuItem>
                      <DropdownMenuItem onClick={handleDownloadAsPpt} disabled={isDownloading}>
-                        <FilePresentation className="mr-2 h-4 w-4" />
+                        <Presentation className="mr-2 h-4 w-4" />
                         <span>PowerPoint (.pptx)</span>
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
