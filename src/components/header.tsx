@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Icons } from "@/components/icons";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Header() {
   return (
@@ -14,10 +13,7 @@ export function Header() {
           </span>
         </Link>
         <div className="flex flex-1 items-center justify-end">
-          <div className="flex items-center space-x-2">
-            <Switch id="theme-toggle" />
-            <Label htmlFor="theme-toggle">Toggle Theme</Label>
-          </div>
+          <ThemeToggle />
         </div>
       </div>
     </header>
