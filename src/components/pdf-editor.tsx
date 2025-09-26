@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { analyzePageLayout } from '@/lib/actions';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus } from 'lucide-react';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
@@ -28,6 +28,16 @@ type PdfSource = {
   arrayBuffer: ArrayBuffer;
   pdfjsDoc: pdfjsLib.PDFDocumentProxy;
 };
+
+const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => (
+    <div className="flex flex-col items-center text-center p-6 bg-card rounded-lg shadow-md hover:shadow-primary/20 transition-shadow">
+        <div className="p-3 bg-primary/10 rounded-full mb-4">
+            {icon}
+        </div>
+        <h3 className="text-lg font-semibold mb-2">{title}</h3>
+        <p className="text-sm text-muted-foreground">{description}</p>
+    </div>
+);
 
 export function PdfEditor() {
   const [pdfSources, setPdfSources] = useState<PdfSource[]>([]);
@@ -251,19 +261,45 @@ export function PdfEditor() {
 
   if (pages.length === 0) {
     return (
-      <Card className="max-w-xl mx-auto text-center shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-2xl font-headline">Welcome to PDFpro</CardTitle>
-          <CardDescription>Upload, reorder, delete, merge, and download pages from your PDF with a live preview.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button size="lg" onClick={() => fileInputRef.current?.click()}>
-            <FileUp className="mr-2" />
-            Upload PDF
-          </Button>
-          <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
-        </CardContent>
-      </Card>
+      <div className='space-y-12'>
+        <Card className="max-w-2xl mx-auto text-center shadow-lg border-2 border-primary/20">
+            <CardHeader>
+                <CardTitle className="text-3xl font-bold tracking-tight">The Ultimate PDF Toolkit</CardTitle>
+                <CardDescription className="text-lg text-muted-foreground">
+                    Effortlessly manage your PDFs. Upload, reorder, delete, merge, and download pages—all with a live preview.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button size="lg" onClick={() => fileInputRef.current?.click()} className="text-lg py-6 px-8">
+                    <FileUp className="mr-2 h-6 w-6" />
+                    Upload PDF & Get Started
+                </Button>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
+            </CardContent>
+        </Card>
+
+        <section className="w-full">
+            <div className="container mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <FeatureCard
+                        icon={<Shuffle className="h-8 w-8 text-primary" />}
+                        title="Reorder & Delete"
+                        description="Easily drag and drop pages to reorder them or delete unwanted pages with a single click."
+                    />
+                    <FeatureCard
+                        icon={<Combine className="h-8 w-8 text-primary" />}
+                        title="Merge PDFs"
+                        description="Combine multiple PDF files into a single document. Add new files to your existing project seamlessly."
+                    />
+                    <FeatureCard
+                        icon={<ZoomIn className="h-8 w-8 text-primary" />}
+                        title="Live Preview"
+                        description="See your changes in real-time. Every adjustment you make is instantly visible in the page preview."
+                    />
+                </div>
+            </div>
+        </section>
+      </div>
     );
   }
 
@@ -326,6 +362,10 @@ export function PdfEditor() {
             </CardContent>
           </Card>
         )}
+      </div>
+      <div className="p-6 bg-accent/50 text-accent-foreground/80 rounded-lg">
+        <h3 className="font-semibold text-lg mb-2 text-accent-foreground">Pro-Tip!</h3>
+        <p className="text-sm">Use the <FilePlus className="inline h-4 w-4" /> 'Add Page' button to insert blank pages anywhere in your document, perfect for adding notes or section breaks.</p>
       </div>
     </div>
   );
