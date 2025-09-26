@@ -61,7 +61,7 @@ export function PdfEditor() {
 
       for (let i = 1; i <= numPages; i++) {
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 1.5 });
+        const viewport = page.getViewport({ scale: 1.0 });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
         canvas.height = viewport.height;
@@ -71,7 +71,7 @@ export function PdfEditor() {
           await page.render({ canvasContext: context, viewport: viewport }).promise;
           renderedPages.push({
             id: Date.now() + i,
-            image: canvas.toDataURL('image/png'),
+            image: canvas.toDataURL('image/jpeg', 0.8),
             originalIndex: i - 1,
           });
         }

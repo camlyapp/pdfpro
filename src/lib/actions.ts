@@ -3,7 +3,7 @@
 import { livePreviewLayoutAnalysis } from '@/ai/flows/live-preview-layout-analysis';
 
 export async function analyzePageLayout(pageDataUri: string) {
-  if (!pageDataUri.startsWith('data:image/png;base64,')) {
+  if (!pageDataUri.startsWith('data:image/jpeg;base64,')) {
     return { success: false, error: 'Invalid page data format.' };
   }
 
