@@ -8,7 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Label } from './ui/label';
+import { Slider } from './ui/slider';
+import { Switch } from './ui/switch';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
@@ -46,6 +51,9 @@ export function PdfEditor() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
+  const [enableCompression, setEnableCompression] = useState(false);
+  const [targetFileSize, setTargetFileSize] = useState(1); // in MB
+  const [compressionPopoverOpen, setCompressionPopoverOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mergeFileInputRef = useRef<HTMLInputElement>(null);
@@ -201,7 +209,7 @@ export function PdfEditor() {
 
     try {
       const page = await source.pdfjsDoc.getPage(pageData.originalIndex + 1);
-      const viewport = page.getViewport({ scale: 1.0 });
+      const viewport = page.getViewport({ scale: 1.5 }); // Increased scale for better quality preview
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       canvas.height = viewport.height;
@@ -209,7 +217,7 @@ export function PdfEditor() {
 
       if (context) {
         await page.render({ canvasContext: context, viewport }).promise;
-        const imageUrl = canvas.toDataURL('image/jpeg', 0.5);
+        const imageUrl = canvas.toDataURL('image/jpeg', 0.7); // Use jpeg for smaller preview size
         setPages((prev) =>
           prev.map((p) => (p.id === pageId ? { ...p, image: imageUrl } : p))
         );
@@ -250,46 +258,83 @@ export function PdfEditor() {
     setPages(prev => prev.map(p => p.id === id ? { ...p, imageScale: scale } : p));
   };
 
+  const generatePdfBytes = async (quality: number = 0.8): Promise<Uint8Array> => {
+    const newPdf = await PDFDocument.create();
+    const sourcePdfDocs = pdfSources.length > 0 ? await Promise.all(
+      pdfSources.map(source => PDFDocument.load(source.arrayBufferForPdfLib.slice(0)))
+    ) : [];
+
+    for (const page of pages) {
+      if (page.isNew) {
+        newPdf.addPage();
+      } else if (page.isFromImage && page.imageBytes) {
+          const imageBytesCopy = page.imageBytes.slice(0);
+          
+          let image;
+          // To control quality, we must use JPG.
+          if (page.imageType === 'image/png') {
+              const pngImage = await newPdf.embedPng(imageBytesCopy);
+              const jpgImageBytes = await pngImage.asJpg(quality);
+              image = await newPdf.embedJpg(jpgImageBytes);
+          } else {
+              image = await newPdf.embedJpg(imageBytesCopy, {quality});
+          }
+
+          const pageToAdd = newPdf.addPage();
+          const { width, height } = image.scale(1);
+          pageToAdd.setSize(width, height);
+          
+          const scaledDims = image.scale(page.imageScale ?? 1);
+          const x = (pageToAdd.getWidth() - scaledDims.width) / 2;
+          const y = (pageToAdd.getHeight() - scaledDims.height) / 2;
+
+          pageToAdd.drawImage(image, { 
+              x,
+              y,
+              width: scaledDims.width,
+              height: scaledDims.height 
+          });
+      } else {
+        const sourcePdf = sourcePdfDocs[page.pdfSourceIndex];
+        if(sourcePdf) {
+          const [copiedPage] = await newPdf.copyPages(sourcePdf, [page.originalIndex]);
+          newPdf.addPage(copiedPage);
+        }
+      }
+    }
+    return newPdf.save();
+  }
+
+
   const handleDownload = async () => {
     if (pages.length === 0) return;
 
     setIsDownloading(true);
+    setCompressionPopoverOpen(false);
     try {
-      const newPdf = await PDFDocument.create();
-      const sourcePdfDocs = pdfSources.length > 0 ? await Promise.all(
-        pdfSources.map(source => PDFDocument.load(source.arrayBufferForPdfLib.slice(0)))
-      ) : [];
+      let pdfBytes: Uint8Array;
 
-      for (const page of pages) {
-        if (page.isNew) {
-          newPdf.addPage();
-        } else if (page.isFromImage && page.imageBytes) {
-            const imageBytesCopy = page.imageBytes.slice(0);
-            const image = await (page.imageType === 'image/png' ? newPdf.embedPng(imageBytesCopy) : newPdf.embedJpg(imageBytesCopy));
-            const pageToAdd = newPdf.addPage();
-            const { width, height } = image.scale(1);
-            pageToAdd.setSize(width, height);
-            
-            const scaledDims = image.scale(page.imageScale ?? 1);
-            const x = (pageToAdd.getWidth() - scaledDims.width) / 2;
-            const y = (pageToAdd.getHeight() - scaledDims.height) / 2;
+      if (enableCompression) {
+        toast({ title: 'Compressing PDF...', description: 'This may take a moment.' });
+        let quality = 0.8; // Start with decent quality
+        pdfBytes = await generatePdfBytes(quality);
+        const targetBytes = targetFileSize * 1024 * 1024;
 
-            pageToAdd.drawImage(image, { 
-                x,
-                y,
-                width: scaledDims.width,
-                height: scaledDims.height 
-            });
-        } else {
-          const sourcePdf = sourcePdfDocs[page.pdfSourceIndex];
-          if(sourcePdf) {
-            const [copiedPage] = await newPdf.copyPages(sourcePdf, [page.originalIndex]);
-            newPdf.addPage(copiedPage);
-          }
+        // Iteratively reduce quality to meet target size.
+        // This is a simplified approach. A more advanced one might use a binary search for quality.
+        while (pdfBytes.length > targetBytes && quality > 0.1) {
+          quality -= 0.1;
+          pdfBytes = await generatePdfBytes(quality);
         }
-      }
 
-      const pdfBytes = await newPdf.save();
+        if (pdfBytes.length > targetBytes) {
+          toast({ variant: 'destructive', title: 'Compression Limit Reached', description: `Could not compress to below ${targetFileSize} MB. Final size is ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.` });
+        } else {
+          toast({ title: 'Compression Successful', description: `Final size is ${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB.` });
+        }
+      } else {
+        pdfBytes = await generatePdfBytes();
+      }
       
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const link = document.createElement('a');
@@ -399,6 +444,54 @@ export function PdfEditor() {
                 {isMerging ? <Loader2 className="animate-spin" /> : <Combine />}
                 Merge PDF
             </Button>
+
+            <Popover open={compressionPopoverOpen} onOpenChange={setCompressionPopoverOpen}>
+                <PopoverTrigger asChild>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="outline" className={enableCompression ? 'border-primary' : ''}>
+                                <Gauge />
+                                Compress
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Compression Settings</TooltipContent>
+                    </Tooltip>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" align="end">
+                    <div className="grid gap-4">
+                        <div className="space-y-2">
+                            <h4 className="font-medium leading-none">PDF Compression</h4>
+                            <p className="text-sm text-muted-foreground">
+                                Reduce file size by compressing images. May reduce image quality.
+                            </p>
+                        </div>
+                        <div className="grid gap-2">
+                            <div className="flex items-center space-x-2">
+                                <Switch id="compression-switch" checked={enableCompression} onCheckedChange={setEnableCompression} />
+                                <Label htmlFor="compression-switch">Enable Compression</Label>
+                            </div>
+                            {enableCompression && (
+                                <div className='space-y-4 pt-4'>
+                                    <div className="flex justify-between items-center">
+                                        <Label htmlFor="target-size">Target Size (MB)</Label>
+                                        <span className="text-sm font-medium">{targetFileSize} MB</span>
+                                    </div>
+                                    <Slider
+                                        id="target-size"
+                                        min={0.5}
+                                        max={10}
+                                        step={0.5}
+                                        value={[targetFileSize]}
+                                        onValueChange={(value) => setTargetFileSize(value[0])}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </PopoverContent>
+            </Popover>
+
+
             <Button onClick={handleDownload} disabled={isDownloading}>
                 {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
                 Download PDF
