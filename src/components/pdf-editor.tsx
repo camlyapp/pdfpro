@@ -4,12 +4,14 @@ import { useState, useRef, useCallback, ChangeEvent } from 'react';
 import { PDFDocument, rgb } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import JSZip from 'jszip';
+import pptxgen from 'pptxgenjs';
+
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, FilePresentation } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -557,6 +559,67 @@ export function PdfEditor() {
     }
   };
 
+  const handleDownloadAsPpt = async () => {
+    if (pages.length === 0) return;
+
+    setIsDownloading(true);
+    toast({ title: 'Creating PowerPoint...', description: 'This may take a moment.' });
+    try {
+        const pptx = new pptxgen();
+        pptx.layout = 'LAYOUT_WIDE'; // 16:9
+
+        for (let i = 0; i < pages.length; i++) {
+            const page = pages[i];
+            let imageDataUrl = page.image;
+
+            if (!imageDataUrl) {
+                await renderPage(page.id);
+                // Need to get the updated page data with the image URI
+                const updatedPage = pages.find(p => p.id === page.id) || page;
+                imageDataUrl = updatedPage.image;
+            }
+
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            if (page.isNew) { // Handle blank pages
+                canvas.width = 1280;
+                canvas.height = 720;
+                if(context) {
+                    context.fillStyle = 'white';
+                    context.fillRect(0, 0, canvas.width, canvas.height);
+                }
+                imageDataUrl = canvas.toDataURL('image/png');
+            } else if (!imageDataUrl || !page.isFromImage) {
+                const pdfPage = await pdfSources[page.pdfSourceIndex].pdfjsDoc.getPage(page.originalIndex + 1);
+                const viewport = pdfPage.getViewport({ scale: 2.0 });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                if (context) {
+                    await pdfPage.render({ canvasContext: context, viewport }).promise;
+                    imageDataUrl = canvas.toDataURL('image/png');
+                }
+            }
+            
+            if (imageDataUrl) {
+                const slide = pptx.addSlide();
+                slide.addImage({ data: imageDataUrl, x: 0, y: 0, w: '100%', h: '100%' });
+            }
+        }
+        
+        const newFileName = pdfSources[0]?.file.name.replace(/\.pdf$/i, '.pptx') ?? 'presentation.pptx';
+        await pptx.writeFile({ fileName: newFileName });
+        
+        toast({ title: 'Download Started', description: `Your presentation "${newFileName}" is downloading.` });
+    } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Failed to Generate PPT', description: 'An error occurred while creating your presentation.' });
+    } finally {
+        setIsDownloading(false);
+    }
+  };
+
+
   const handleReset = () => {
     setPdfSources([]);
     setPages([]);
@@ -784,6 +847,10 @@ export function PdfEditor() {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleDownloadAsImages('jpeg')} disabled={isDownloading}>
                       <span>JPEG images (.zip)</span>
+                    </DropdownMenuItem>
+                     <DropdownMenuItem onClick={handleDownloadAsPpt} disabled={isDownloading}>
+                        <FilePresentation className="mr-2 h-4 w-4" />
+                        <span>PowerPoint (.pptx)</span>
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
