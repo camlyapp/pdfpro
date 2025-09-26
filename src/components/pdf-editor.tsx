@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -26,6 +26,7 @@ import { extractStructuredData } from '@/ai/flows/extract-structured-data';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { ScrollArea, ScrollBar } from './ui/scroll-area';
+import { ScanDocument } from './scan-document';
 
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -81,6 +82,7 @@ export function PdfEditor() {
   const [isConvertingExcel, setIsConvertingExcel] = useState(false);
   const [isConvertingPptx, setIsConvertingPptx] = useState(false);
   const [isSplitting, setIsSplitting] = useState(false);
+  const [isScanDialogOpen, setIsScanDialogOpen] = useState(false);
   const [extractedData, setExtractedData] = useState('');
   const [ocrPrompt, setOcrPrompt] = useState('Extract the invoice number, date, and total amount.');
   const [enableCompression, setEnableCompression] = useState(false);
@@ -180,21 +182,11 @@ export function PdfEditor() {
     toast({ title: 'PDF Merged', description: `Added pages from "${file.name}".`});
     if (event.target) event.target.value = '';
   };
-  
-  const handleImageFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !file.type.startsWith('image/')) {
-        toast({
-            variant: 'destructive',
-            title: 'Invalid File',
-            description: 'Please select a valid image file (JPEG, PNG, etc.).',
-        });
-        return;
-    }
 
+  const addImageAsPage = async (imageFile: File | Blob, fileName: string) => {
     try {
-        const imageBytes = await file.arrayBuffer();
-        const imageUrl = URL.createObjectURL(file);
+        const imageBytes = await imageFile.arrayBuffer();
+        const imageUrl = URL.createObjectURL(imageFile);
         resetCompressedState();
 
         const newPage: Page = {
@@ -204,20 +196,20 @@ export function PdfEditor() {
             isFromImage: true,
             image: imageUrl,
             imageBytes: imageBytes,
-            imageType: file.type,
+            imageType: imageFile.type,
             imageScale: 1,
         };
 
         if (pdfSources.length === 0) {
             const newPdfDoc = await PDFDocument.create();
             const page = newPdfDoc.addPage();
-            const image = await (file.type === 'image/png' ? newPdfDoc.embedPng(imageBytes) : newPdfDoc.embedJpg(imageBytes));
+            const image = await (imageFile.type === 'image/png' ? newPdfDoc.embedPng(imageBytes) : newPdfDoc.embedJpg(imageBytes));
             const { width, height } = image.scale(1);
             page.setSize(width, height);
             page.drawImage(image, { x: 0, y: 0, width, height });
 
             const pdfBytes = await newPdfDoc.save();
-            const newFile = new File([pdfBytes], file.name.replace(/\.[^/.]+$/, "") + ".pdf", { type: 'application/pdf' });
+            const newFile = new File([pdfBytes], fileName.replace(/\.[^/.]+$/, "") + ".pdf", { type: 'application/pdf' });
             await processAndSetPdf(newFile, 0);
 
         } else {
@@ -234,9 +226,28 @@ export function PdfEditor() {
             description: 'There was an issue processing your image file.',
         });
     }
-
+  };
+  
+  const handleImageFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid File',
+            description: 'Please select a valid image file (JPEG, PNG, etc.).',
+        });
+        return;
+    }
+    await addImageAsPage(file, file.name);
     if (event.target) event.target.value = '';
   };
+  
+  const handleScanComplete = (imageBlob: Blob) => {
+    const fileName = `scan_${new Date().toISOString()}.jpeg`;
+    addImageAsPage(imageBlob, fileName);
+    setIsScanDialogOpen(false);
+  };
+
 
   const handleImageToSvg = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1121,6 +1132,15 @@ export function PdfEditor() {
                         <FileUp className="mr-2 h-6 w-6" />
                         Upload PDF
                     </Button>
+                    <Dialog open={isScanDialogOpen} onOpenChange={setIsScanDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button size="lg" variant="outline" className="text-lg py-6 px-8">
+                                <Camera className="mr-2 h-6 w-6" />
+                                Scan to PDF
+                            </Button>
+                        </DialogTrigger>
+                        <ScanDocument onScanComplete={handleScanComplete} />
+                    </Dialog>
                     <Button size="lg" variant="outline" onClick={() => imageFileInputRef.current?.click()} className="text-lg py-6 px-8">
                         <ImagePlus className="mr-2 h-6 w-6" />
                         Image to PDF
@@ -1174,7 +1194,7 @@ export function PdfEditor() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 p-4 bg-card border rounded-lg shadow-sm">
-        <div className="flex flex-wrap md:flex-nowrap gap-4 items-center justify-between">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
             <div className='flex-auto min-w-0'>
                 <h2 className="font-bold text-lg truncate" title={pdfSources[0]?.file.name}>{pdfSources[0]?.file.name}</h2>
                 <p className="text-sm text-muted-foreground">{pages.length} pages</p>
@@ -1286,6 +1306,14 @@ export function PdfEditor() {
                     <Button variant="outline" onClick={handleAddPage}>
                         <Plus /> Add Page
                     </Button>
+                    <Dialog open={isScanDialogOpen} onOpenChange={setIsScanDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="outline">
+                                <Camera /> Scan Page
+                            </Button>
+                        </DialogTrigger>
+                        <ScanDocument onScanComplete={handleScanComplete} />
+                    </Dialog>
                     <Button variant="outline" onClick={() => imageFileInputRef.current?.click()}>
                         <ImagePlus /> Add Image
                     </Button>
