@@ -274,34 +274,12 @@ export function PdfEditor() {
           const imageBytesCopy = page.imageBytes.slice(0);
           
           let image;
-          // To control quality, we must use JPG.
           if (page.imageType === 'image/png') {
               const pngImage = await newPdf.embedPng(imageBytesCopy);
-              // Create a temporary PDF to convert PNG to JPG with quality
-              const tempPdf = await PDFDocument.create();
-              const tempPage = tempPdf.addPage();
-              tempPage.drawImage(pngImage, {width: pngImage.width, height: pngImage.height});
-              const tempBytes = await tempPdf.save();
-              const loadedPdf = await PDFDocument.load(tempBytes);
-              
-              // This is a workaround to get the raw JPG bytes from a PNG
-              const pageWithImage = loadedPdf.getPage(0);
-              let jpgBytes: Uint8Array | undefined;
-              pageWithImage.node.Resources?.XObject?.asMap().forEach(obj => {
-                if (obj.get('Subtype').toString() === '/Image') {
-                    const stream = obj as unknown as { get: (key: string) => {get: (key: string) => any}, contents: Uint8Array };
-                    jpgBytes = stream.contents;
-                }
-              });
-
-              if (jpgBytes) {
-                 image = await newPdf.embedJpg(jpgBytes);
-              } else {
-                 image = await newPdf.embedPng(imageBytesCopy); // fallback
-              }
+              image = await newPdf.embedJpg(await pngImage.asJpg(quality));
 
           } else { // Assumes jpeg or similar
-              image = await newPdf.embedJpg(imageBytesCopy);
+              image = await newPdf.embedJpg(imageBytesCopy, quality);
           }
           
           const pageToAdd = newPdf.addPage();
@@ -328,10 +306,6 @@ export function PdfEditor() {
     }
 
     if (enableCompression) {
-      // The save function doesn't seem to have options to reduce quality for existing images from PDFs.
-      // The logic above handles new images. For a more robust solution, one would need to iterate
-      // through all PDF objects, find images, and re-compress them, which is complex.
-      // This implementation mainly compresses newly added images.
       return newPdf.save({ useObjectStreams: false });
     }
     return newPdf.save();
@@ -347,17 +321,32 @@ export function PdfEditor() {
 
       if (enableCompression) {
         toast({ title: 'Compressing PDF...', description: 'This may take a moment.' });
-        let quality = 0.8; // Start with decent quality
-        pdfBytes = await generatePdfBytes(quality);
-        
         const targetBytes = targetUnit === 'MB' ? targetSize * 1024 * 1024 : targetSize * 1024;
+        
+        // Binary search for the best quality
+        let minQuality = 0.01;
+        let maxQuality = 1.0;
+        let bestQuality = 0.8;
+        let bestPdfBytes: Uint8Array | null = null;
+        let iterations = 0;
 
-        // Iteratively reduce quality to meet target size.
-        // This is a simplified approach. A more advanced one might use a binary search for quality.
-        while (pdfBytes.length > targetBytes && quality > 0.1) {
-          quality -= 0.1;
-          pdfBytes = await generatePdfBytes(quality);
+        while (minQuality <= maxQuality && iterations < 10) {
+          const currentQuality = (minQuality + maxQuality) / 2;
+          const currentPdfBytes = await generatePdfBytes(currentQuality);
+          
+          if (currentPdfBytes.length <= targetBytes) {
+            // Good candidate, try for better quality (larger size)
+            bestPdfBytes = currentPdfBytes;
+            bestQuality = currentQuality;
+            minQuality = currentQuality + 0.01;
+          } else {
+            // Too large, reduce quality
+            maxQuality = currentQuality - 0.01;
+          }
+          iterations++;
         }
+        
+        pdfBytes = bestPdfBytes ?? await generatePdfBytes(bestQuality);
 
         const finalSizeMB = (pdfBytes.length / 1024 / 1024).toFixed(2);
         const finalSizeKB = (pdfBytes.length / 1024).toFixed(2);
@@ -581,3 +570,5 @@ export function PdfEditor() {
     </div>
   );
 }
+
+    
