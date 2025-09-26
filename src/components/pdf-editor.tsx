@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, ChangeEvent } from 'react';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, rgb } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { analyzePageLayout } from '@/lib/actions';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus } from 'lucide-react';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
@@ -21,6 +21,9 @@ type Page = {
   analysis?: string;
   isAnalyzing?: boolean;
   isNew?: boolean; // For blank pages
+  isFromImage?: boolean; // For pages created from an image
+  imageBytes?: ArrayBuffer; // For pages created from an image
+  imageType?: string; // e.g., 'image/png'
 };
 
 type PdfSource = {
@@ -48,6 +51,7 @@ export function PdfEditor() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mergeFileInputRef = useRef<HTMLInputElement>(null);
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
   const { toast } = useToast();
@@ -121,6 +125,62 @@ export function PdfEditor() {
     toast({ title: 'PDF Merged', description: `Added pages from "${file.name}".`});
     if (event.target) event.target.value = '';
   };
+  
+  const handleImageFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid File',
+            description: 'Please select a valid image file (JPEG, PNG, etc.).',
+        });
+        return;
+    }
+
+    try {
+        const imageBytes = await file.arrayBuffer();
+        const imageUrl = URL.createObjectURL(file);
+
+        const newPage: Page = {
+            id: Date.now(),
+            originalIndex: -1,
+            pdfSourceIndex: -1,
+            isFromImage: true,
+            image: imageUrl,
+            imageBytes: imageBytes,
+            imageType: file.type,
+        };
+
+        if (pdfSources.length === 0) {
+            // If no PDF is loaded, create a new one with the image.
+            const newPdfDoc = await PDFDocument.create();
+            const page = newPdfDoc.addPage();
+            const image = await (file.type === 'image/png' ? newPdfDoc.embedPng(imageBytes) : newPdfDoc.embedJpg(imageBytes));
+            const { width, height } = image.scale(1);
+            page.setSize(width, height);
+            page.drawImage(image, { x: 0, y: 0, width, height });
+
+            const pdfBytes = await newPdfDoc.save();
+            const newFile = new File([pdfBytes], file.name.replace(/\.[^/.]+$/, "") + ".pdf", { type: 'application/pdf' });
+            await processAndSetPdf(newFile, 0);
+
+        } else {
+             setPages(prev => [...prev, newPage]);
+        }
+
+        toast({ title: 'Image added as a new page.' });
+
+    } catch (error) {
+        console.error(error);
+        toast({
+            variant: 'destructive',
+            title: 'Error Processing Image',
+            description: 'There was an issue processing your image file.',
+        });
+    }
+
+    if (event.target) event.target.value = '';
+  };
 
 
   const renderPage = useCallback(async (pageId: number) => {
@@ -129,8 +189,8 @@ export function PdfEditor() {
 
     const pageData = pages[pageIndex];
 
-    if (pageData.isNew) {
-      // It's a blank page, no rendering needed as it's handled in PagePreview
+    if (pageData.isNew || pageData.isFromImage) {
+      // It's a blank page or image page, rendering is handled directly or already done.
       return;
     }
     
@@ -205,22 +265,30 @@ export function PdfEditor() {
   }, [pages, toast]);
 
   const handleDownload = async () => {
-    if (pdfSources.length === 0 || pages.length === 0) return;
+    if (pages.length === 0) return;
 
     setIsDownloading(true);
     try {
       const newPdf = await PDFDocument.create();
-      const sourcePdfDocs = await Promise.all(
+      const sourcePdfDocs = pdfSources.length > 0 ? await Promise.all(
         pdfSources.map(source => PDFDocument.load(source.arrayBuffer))
-      );
+      ) : [];
 
       for (const page of pages) {
         if (page.isNew) {
           newPdf.addPage();
+        } else if (page.isFromImage && page.imageBytes) {
+            const image = await (page.imageType === 'image/png' ? newPdf.embedPng(page.imageBytes) : newPdf.embedJpg(page.imageBytes));
+            const pageToAdd = newPdf.addPage();
+            const { width, height } = image.scale(1);
+            pageToAdd.setSize(width, height);
+            pageToAdd.drawImage(image, { x: 0, y: 0, width, height });
         } else {
           const sourcePdf = sourcePdfDocs[page.pdfSourceIndex];
-          const [copiedPage] = await newPdf.copyPages(sourcePdf, [page.originalIndex]);
-          newPdf.addPage(copiedPage);
+          if(sourcePdf) {
+            const [copiedPage] = await newPdf.copyPages(sourcePdf, [page.originalIndex]);
+            newPdf.addPage(copiedPage);
+          }
         }
       }
 
@@ -229,7 +297,7 @@ export function PdfEditor() {
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      const newFileName = pdfSources[0].file.name.replace('.pdf', '_edited.pdf') ?? 'edited.pdf';
+      const newFileName = pdfSources[0]?.file.name.replace('.pdf', '_edited.pdf') ?? 'edited.pdf';
       link.download = newFileName;
       document.body.appendChild(link);
       link.click();
@@ -270,11 +338,18 @@ export function PdfEditor() {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <Button size="lg" onClick={() => fileInputRef.current?.click()} className="text-lg py-6 px-8">
-                    <FileUp className="mr-2 h-6 w-6" />
-                    Upload PDF & Get Started
-                </Button>
+                <div className="flex justify-center gap-4">
+                    <Button size="lg" onClick={() => fileInputRef.current?.click()} className="text-lg py-6 px-8">
+                        <FileUp className="mr-2 h-6 w-6" />
+                        Upload PDF
+                    </Button>
+                    <Button size="lg" variant="outline" onClick={() => imageFileInputRef.current?.click()} className="text-lg py-6 px-8">
+                        <ImagePlus className="mr-2 h-6 w-6" />
+                        Image to PDF
+                    </Button>
+                </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
+                <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
             </CardContent>
         </Card>
 
@@ -320,6 +395,9 @@ export function PdfEditor() {
             <Button variant="outline" onClick={handleAddPage}>
                 <Plus /> Add Page
             </Button>
+            <Button variant="outline" onClick={() => imageFileInputRef.current?.click()}>
+                <ImagePlus /> Add Image
+            </Button>
             <Button variant="outline" onClick={() => mergeFileInputRef.current?.click()} disabled={isMerging}>
                 {isMerging ? <Loader2 className="animate-spin" /> : <Combine />}
                 Merge PDF
@@ -330,6 +408,7 @@ export function PdfEditor() {
             </Button>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
             <input type="file" ref={mergeFileInputRef} onChange={handleMergeFileChange} accept="application/pdf" className="hidden" />
+            <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">

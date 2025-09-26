@@ -17,6 +17,7 @@ type Page = {
   analysis?: string;
   isAnalyzing?: boolean;
   isNew?: boolean;
+  isFromImage?: boolean;
 };
 
 interface PagePreviewProps {
