@@ -21,7 +21,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from './ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from './ui/dropdown-menu';
 import { imageToSvg } from '@/ai/flows/image-to-svg';
 import { extractStructuredData } from '@/ai/flows/extract-structured-data';
 
@@ -45,6 +45,9 @@ type PdfSource = {
   arrayBufferForPdfLib: ArrayBuffer;
   pdfjsDoc: pdfjsLib.PDFDocumentProxy;
 };
+
+type DownloadFormat = 'pdf' | 'png' | 'jpeg' | 'ppt' | 'xlsx';
+
 
 const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => (
     <div className="flex flex-col items-center text-center p-6 bg-card rounded-lg shadow-md hover:shadow-primary/20 transition-shadow">
@@ -71,6 +74,8 @@ export function PdfEditor() {
   const [targetSize, setTargetSize] = useState<number>(1);
   const [targetUnit, setTargetUnit] = useState<'MB' | 'KB'>('MB');
   const [compressedPdfBytes, setCompressedPdfBytes] = useState<Uint8Array | null>(null);
+  const [downloadFormat, setDownloadFormat] = useState<DownloadFormat>('pdf');
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mergeFileInputRef = useRef<HTMLInputElement>(null);
@@ -450,7 +455,7 @@ export function PdfEditor() {
   }
 
 
-  const handleDownload = async () => {
+  const handleDownloadPdf = async () => {
     if (pages.length === 0) return;
 
     setIsDownloading(true);
@@ -754,6 +759,46 @@ export function PdfEditor() {
     }
   };
 
+  const handleDownload = () => {
+    switch (downloadFormat) {
+      case 'pdf':
+        handleDownloadPdf();
+        break;
+      case 'png':
+        handleDownloadAsImages('png');
+        break;
+      case 'jpeg':
+        handleDownloadAsImages('jpeg');
+        break;
+      case 'ppt':
+        handleDownloadAsPpt();
+        break;
+      case 'xlsx':
+        handleDownloadAsXlsx();
+        break;
+      default:
+        handleDownloadPdf();
+    }
+  };
+
+  const getDownloadButtonText = () => {
+    switch (downloadFormat) {
+      case 'pdf':
+        return 'Download PDF';
+      case 'png':
+        return 'Download PNGs';
+      case 'jpeg':
+        return 'Download JPEGs';
+      case 'ppt':
+        return 'Download PPT';
+      case 'xlsx':
+        return 'Download Excel';
+      default:
+        return 'Download PDF';
+    }
+  };
+
+
   if (isLoading && pdfSources.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-96">
@@ -902,7 +947,7 @@ export function PdfEditor() {
               <div className="flex items-center rounded-md border">
                 <Button onClick={handleDownload} disabled={isDownloading} variant="ghost" className="border-r rounded-r-none">
                   {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
-                  Download PDF
+                  {getDownloadButtonText()}
                 </Button>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="rounded-l-none" disabled={isDownloading}>
@@ -910,32 +955,33 @@ export function PdfEditor() {
                   </Button>
                 </DropdownMenuTrigger>
               </div>
-              <DropdownMenuContent align="end" className="w-80" onClick={(e) => e.preventDefault()}>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Image className="mr-2 h-4 w-4" />
-                    <span>Download as...</span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuItem onClick={() => handleDownloadAsImages('png')} disabled={isDownloading}>
+              <DropdownMenuContent align="end" className="w-80">
+                <DropdownMenuLabel>Download Format</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={downloadFormat} onValueChange={(value) => setDownloadFormat(value as DownloadFormat)}>
+                    <DropdownMenuRadioItem value="pdf">
+                        <Image className="mr-2 h-4 w-4" />
+                        <span>PDF Document</span>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="png">
+                      <Image className="mr-2 h-4 w-4" />
                       <span>PNG images (.zip)</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDownloadAsImages('jpeg')} disabled={isDownloading}>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="jpeg">
+                      <Image className="mr-2 h-4 w-4" />
                       <span>JPEG images (.zip)</span>
-                    </DropdownMenuItem>
-                     <DropdownMenuItem onClick={handleDownloadAsPpt} disabled={isDownloading}>
+                    </DropdownMenuRadioItem>
+                     <DropdownMenuRadioItem value="ppt">
                         <Presentation className="mr-2 h-4 w-4" />
                         <span>PowerPoint (.pptx)</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleDownloadAsXlsx} disabled={isDownloading}>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="xlsx">
                         <FileSpreadsheet className="mr-2 h-4 w-4" />
                         <span>Excel (.xlsx)</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                    </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
 
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel>Compression Settings</DropdownMenuLabel>
+                <DropdownMenuLabel>Compression Settings (PDF Only)</DropdownMenuLabel>
                 <div className="p-2 space-y-4">
                   <div className="flex items-center justify-between space-x-2">
                       <Label htmlFor="compression-switch" className="flex flex-col space-y-1">
@@ -944,9 +990,9 @@ export function PdfEditor() {
                               Reduce file size by compressing images. May reduce image quality.
                           </span>
                       </Label>
-                      <Switch id="compression-switch" checked={enableCompression} onCheckedChange={setEnableCompression} />
+                      <Switch id="compression-switch" checked={enableCompression} onCheckedChange={setEnableCompression} disabled={downloadFormat !== 'pdf'}/>
                   </div>
-                  {enableCompression && (
+                  {enableCompression && downloadFormat === 'pdf' && (
                       <div className='space-y-2 pt-2'>
                           <Label htmlFor="target-size">Target File Size</Label>
                           <div className="flex items-center gap-2">
