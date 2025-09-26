@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,7 @@ interface PagePreviewProps {
   onDelete: (id: number) => void;
   onAnalyze: (id: number) => void;
   onVisible: () => void;
-  onImageScaleChange: (scale: number) => void;
+  onImageScaleChange: (id: number, scale: number) => void;
 }
 
 export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible, onImageScaleChange }: PagePreviewProps) {
@@ -144,7 +144,7 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible, 
                             max={2}
                             step={0.05}
                             defaultValue={[page.imageScale ?? 1]}
-                            onValueChange={(value) => onImageScaleChange(value[0])}
+                            onValueChange={(value) => onImageScaleChange(page.id, value[0])}
                         />
                     </div>
                 </div>
@@ -184,5 +184,3 @@ export function PagePreview({ page, pageNumber, onDelete, onAnalyze, onVisible, 
     </Card>
   );
 }
-
-    

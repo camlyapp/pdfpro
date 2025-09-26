@@ -280,14 +280,15 @@ export function PdfEditor() {
     try {
       const newPdf = await PDFDocument.create();
       const sourcePdfDocs = pdfSources.length > 0 ? await Promise.all(
-        pdfSources.map(source => PDFDocument.load(source.arrayBufferForPdfLib))
+        pdfSources.map(source => PDFDocument.load(source.arrayBufferForPdfLib.slice(0)))
       ) : [];
 
       for (const page of pages) {
         if (page.isNew) {
           newPdf.addPage();
         } else if (page.isFromImage && page.imageBytes) {
-            const image = await (page.imageType === 'image/png' ? newPdf.embedPng(page.imageBytes) : newPdf.embedJpg(page.imageBytes));
+            const imageBytesCopy = page.imageBytes.slice(0);
+            const image = await (page.imageType === 'image/png' ? newPdf.embedPng(imageBytesCopy) : newPdf.embedJpg(imageBytesCopy));
             const pageToAdd = newPdf.addPage();
             const { width, height } = image.scale(1);
             pageToAdd.setSize(width, height);
@@ -447,7 +448,7 @@ export function PdfEditor() {
               onDelete={handleDeletePage}
               onAnalyze={handleAnalyzePage}
               onVisible={() => renderPage(page.id)}
-              onImageScaleChange={(scale) => handleImageScaleChange(page.id, scale)}
+              onImageScaleChange={handleImageScaleChange}
             />
           </div>
         ))}
@@ -474,5 +475,3 @@ export function PdfEditor() {
     </div>
   );
 }
-
-    
