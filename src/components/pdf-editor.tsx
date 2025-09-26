@@ -1312,7 +1312,6 @@ const handleDownloadAsWord = async () => {
         const newFileName = pdfSources[0]?.file.name.replace(/\.pdf$/i, '_split.zip') ?? 'split_pages.zip';
         link.download = newFileName;
         document.body.appendChild(link);
-        link.click();
         document.body.removeChild(link);
         toast({ title: 'Download Started', description: `Your split PDFs are downloading as "${newFileName}".` });
     } catch (error) {
@@ -1891,3 +1890,5 @@ const handleDownloadAsWord = async () => {
     </div>
   );
 }
+
+    
