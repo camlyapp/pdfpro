@@ -25,6 +25,7 @@ import { imageToSvg } from '@/ai/flows/image-to-svg';
 import { extractStructuredData } from '@/ai/flows/extract-structured-data';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { ScrollArea, ScrollBar } from './ui/scroll-area';
 
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -1005,84 +1006,88 @@ export function PdfEditor() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap gap-4 items-center justify-between p-4 bg-card border rounded-lg shadow-sm">
-        <div>
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between p-4 bg-card border rounded-lg shadow-sm">
+        <div className='flex-shrink-0'>
           <h2 className="font-bold text-lg">{pdfSources[0]?.file.name}</h2>
           <p className="text-sm text-muted-foreground">{pages.length} pages</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                <Replace /> Change File
-            </Button>
-            <Button variant="outline" onClick={handleReset}>
-                <Trash2 /> Reset
-            </Button>
-            <Button variant="outline" onClick={handleAddPage}>
-                <Plus /> Add Page
-            </Button>
-            <Button variant="outline" onClick={() => imageFileInputRef.current?.click()}>
-                <ImagePlus /> Add Image
-            </Button>
-            <Button variant="outline" onClick={() => mergeFileInputRef.current?.click()} disabled={isMerging}>
-                {isMerging ? <Loader2 className="animate-spin" /> : <Combine />}
-                Merge PDF
-            </Button>
-
-            <Dialog>
-                <DialogTrigger asChild>
-                    <Button variant="outline">
-                        <BrainCircuit /> Extract Data (OCR)
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>Extract Structured Data (Advanced OCR)</DialogTitle>
-                        <DialogDescription>
-                            Describe the data you want to extract from the first page of the PDF. The AI will return it as a JSON object.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="ocr-prompt">Extraction Prompt</Label>
-                            <Textarea
-                                id="ocr-prompt"
-                                value={ocrPrompt}
-                                onChange={(e) => setOcrPrompt(e.target.value)}
-                                placeholder="e.g., Extract the invoice number, date, and a list of items with their prices."
-                                className="min-h-[80px]"
-                            />
-                        </div>
-                        {extractedData && (
-                            <div className="grid gap-2">
-                                <Label>Extracted Data</Label>
-                                <div className="relative">
-                                    <pre className="p-4 bg-muted rounded-md text-sm max-h-64 overflow-auto">
-                                        <code>{extractedData}</code>
-                                    </pre>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="absolute top-2 right-2 h-7 w-7"
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(extractedData);
-                                            toast({ title: 'Copied to clipboard!' });
-                                        }}
-                                    >
-                                        <Copy />
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    <DialogFooter>
-                        <Button onClick={handleExtractData} disabled={isExtractingData}>
-                            {isExtractingData ? <Loader2 className="animate-spin" /> : <><BrainCircuit className="mr-2" /> Extract Data</>}
+        <div className="flex gap-4 items-center w-full">
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex gap-2 pb-4">
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                    <Replace /> Change File
+                </Button>
+                <Button variant="outline" onClick={handleReset}>
+                    <Trash2 /> Reset
+                </Button>
+                <Button variant="outline" onClick={handleAddPage}>
+                    <Plus /> Add Page
+                </Button>
+                <Button variant="outline" onClick={() => imageFileInputRef.current?.click()}>
+                    <ImagePlus /> Add Image
+                </Button>
+                <Button variant="outline" onClick={() => mergeFileInputRef.current?.click()} disabled={isMerging}>
+                    {isMerging ? <Loader2 className="animate-spin" /> : <Combine />}
+                    Merge PDF
+                </Button>
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <Button variant="outline">
+                            <BrainCircuit /> Extract Data (OCR)
                         </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-2xl">
+                        <DialogHeader>
+                            <DialogTitle>Extract Structured Data (Advanced OCR)</DialogTitle>
+                            <DialogDescription>
+                                Describe the data you want to extract from the first page of the PDF. The AI will return it as a JSON object.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="ocr-prompt">Extraction Prompt</Label>
+                                <Textarea
+                                    id="ocr-prompt"
+                                    value={ocrPrompt}
+                                    onChange={(e) => setOcrPrompt(e.target.value)}
+                                    placeholder="e.g., Extract the invoice number, date, and a list of items with their prices."
+                                    className="min-h-[80px]"
+                                />
+                            </div>
+                            {extractedData && (
+                                <div className="grid gap-2">
+                                    <Label>Extracted Data</Label>
+                                    <div className="relative">
+                                        <pre className="p-4 bg-muted rounded-md text-sm max-h-64 overflow-auto">
+                                            <code>{extractedData}</code>
+                                        </pre>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="absolute top-2 right-2 h-7 w-7"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(extractedData);
+                                                toast({ title: 'Copied to clipboard!' });
+                                            }}
+                                        >
+                                            <Copy />
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <DialogFooter>
+                            <Button onClick={handleExtractData} disabled={isExtractingData}>
+                                {isExtractingData ? <Loader2 className="animate-spin" /> : <><BrainCircuit className="mr-2" /> Extract Data</>}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+              </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
 
-            <div className="flex items-center rounded-md border">
+            <div className="flex items-center rounded-md border flex-shrink-0">
               <Button onClick={handleDownload} disabled={isDownloading} variant="ghost" className="border-r rounded-r-none">
                 {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
                 {getDownloadButtonText()}
@@ -1176,11 +1181,11 @@ export function PdfEditor() {
                   </PopoverContent>
               </Popover>
             </div>
-            
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
-            <input type="file" ref={mergeFileInputRef} onChange={handleMergeFileChange} accept="application/pdf" className="hidden" />
-            <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
         </div>
+            
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
+        <input type="file" ref={mergeFileInputRef} onChange={handleMergeFileChange} accept="application/pdf" className="hidden" />
+        <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
         {pages.map((page, index) => (
