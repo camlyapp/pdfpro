@@ -68,6 +68,20 @@ const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode, titl
     </div>
 );
 
+const ToolCard = ({ icon, title, onClick, disabled = false }: { icon: React.ReactNode, title: string, onClick: () => void, disabled?: boolean}) => (
+    <button
+        onClick={onClick}
+        disabled={disabled}
+        className="flex flex-col items-center justify-center p-4 bg-card rounded-lg shadow-sm hover:shadow-primary/20 transition-all aspect-square border border-transparent hover:border-primary disabled:opacity-50 disabled:pointer-events-none"
+    >
+        <div className="p-3 bg-primary/10 rounded-full mb-3">
+            {icon}
+        </div>
+        <h3 className="text-base font-semibold text-center">{title}</h3>
+    </button>
+);
+
+
 // Function to remove non-WinAnsi characters
 const sanitizeTextForPdf = (text: string): string => {
   // This is a simplified regex. A more accurate one would be more complex.
@@ -844,12 +858,11 @@ export function PdfEditor() {
     }
 
     if (enableEncryption && encryptionPassword) {
-        const { PermissionFlag } = PDFDocument;
         saveOptions.userPassword = encryptionPassword;
         saveOptions.ownerPassword = encryptionPassword;
         saveOptions.permissions = [
-            PermissionFlag.Print,
-            PermissionFlag.Copy,
+            PDFDocument.PermissionFlag.Print,
+            PDFDocument.PermissionFlag.Copy,
         ];
     }
 
@@ -1439,44 +1452,57 @@ const handleDownloadAsWord = async () => {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="flex justify-center gap-4 flex-wrap">
-                    <Button size="lg" onClick={() => fileInputRef.current?.click()} className="text-lg py-6 px-8">
-                        <FileUp className="mr-2 h-6 w-6" />
-                        Upload PDF
-                    </Button>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                     <ToolCard
+                        icon={<FileUp className="h-8 w-8 text-primary" />}
+                        title="Upload PDF"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
                     <Dialog open={isScanDialogOpen} onOpenChange={setIsScanDialogOpen}>
                         <DialogTrigger asChild>
-                            <Button size="lg" variant="outline" className="text-lg py-6 px-8">
-                                <Camera className="mr-2 h-6 w-6" />
-                                Scan to PDF
-                            </Button>
+                             <ToolCard
+                                icon={<Camera className="h-8 w-8 text-primary" />}
+                                title="Scan to PDF"
+                                onClick={() => {}}
+                            />
                         </DialogTrigger>
                         <ScanDocument onScanComplete={handleScanComplete} open={isScanDialogOpen} />
                     </Dialog>
-                    <Button size="lg" variant="outline" onClick={() => imageFileInputRef.current?.click()} className="text-lg py-6 px-8">
-                        <ImagePlus className="mr-2 h-6 w-6" />
-                        Image to PDF
-                    </Button>
-                     <Button size="lg" variant="outline" onClick={() => imageToSvgInputRef.current?.click()} className="text-lg py-6 px-8" disabled={isConvertingToSvg}>
-                        {isConvertingToSvg ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <FileJson className="mr-2 h-6 w-6" />}
-                        Image to SVG
-                    </Button>
-                    <Button size="lg" variant="outline" onClick={() => excelFileInputRef.current?.click()} className="text-lg py-6 px-8" disabled={isConvertingExcel}>
-                        {isConvertingExcel ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <FileSpreadsheet className="mr-2 h-6 w-6" />}
-                        Excel to PDF
-                    </Button>
-                     <Button size="lg" variant="outline" onClick={() => pptxFileInputRef.current?.click()} className="text-lg py-6 px-8" disabled={isConvertingPptx}>
-                        {isConvertingPptx ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Presentation className="mr-2 h-6 w-6" />}
-                        PowerPoint to PDF
-                    </Button>
-                    <Button size="lg" variant="outline" onClick={() => wordFileInputRef.current?.click()} className="text-lg py-6 px-8" disabled={isConvertingWord}>
-                        {isConvertingWord ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <FileText className="mr-2 h-6 w-6" />}
-                        Word to PDF
-                    </Button>
-                    <Button size="lg" variant="outline" onClick={() => htmlFileInputRef.current?.click()} className="text-lg py-6 px-8" disabled={isConvertingHtml}>
-                        {isConvertingHtml ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <FileText className="mr-2 h-6 w-6" />}
-                        HTML to PDF
-                    </Button>
+                    <ToolCard
+                        icon={<ImagePlus className="h-8 w-8 text-primary" />}
+                        title="Image to PDF"
+                        onClick={() => imageFileInputRef.current?.click()}
+                    />
+                    <ToolCard
+                        icon={isConvertingToSvg ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileJson className="h-8 w-8 text-primary" />}
+                        title="Image to SVG"
+                        onClick={() => imageToSvgInputRef.current?.click()}
+                        disabled={isConvertingToSvg}
+                    />
+                    <ToolCard
+                        icon={isConvertingExcel ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileSpreadsheet className="h-8 w-8 text-primary" />}
+                        title="Excel to PDF"
+                        onClick={() => excelFileInputRef.current?.click()}
+                        disabled={isConvertingExcel}
+                    />
+                    <ToolCard
+                        icon={isConvertingPptx ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <Presentation className="h-8 w-8 text-primary" />}
+                        title="PowerPoint to PDF"
+                        onClick={() => pptxFileInputRef.current?.click()}
+                        disabled={isConvertingPptx}
+                    />
+                    <ToolCard
+                        icon={isConvertingWord ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileText className="h-8 w-8 text-primary" />}
+                        title="Word to PDF"
+                        onClick={() => wordFileInputRef.current?.click()}
+                        disabled={isConvertingWord}
+                    />
+                    <ToolCard
+                        icon={isConvertingHtml ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileText className="h-8 w-8 text-primary" />}
+                        title="HTML to PDF"
+                        onClick={() => htmlFileInputRef.current?.click()}
+                        disabled={isConvertingHtml}
+                    />
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
                 <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
@@ -1506,7 +1532,7 @@ const handleDownloadAsWord = async () => {
                         title="Live Preview"
                         description="See your changes in real-time. Every adjustment you make is instantly visible in the page preview."
                     />
-                    <FeatureCard
+                     <FeatureCard
                         icon={<Unlock className="h-8 w-8 text-primary" />}
                         title="Remove Encryption"
                         description="Upload a password-protected PDF, enter its password, and download a password-free version."
