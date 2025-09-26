@@ -79,6 +79,7 @@ export function PdfEditor() {
   const [isConvertingToSvg, setIsConvertingToSvg] = useState(false);
   const [isExtractingData, setIsExtractingData] = useState(false);
   const [isConvertingExcel, setIsConvertingExcel] = useState(false);
+  const [isConvertingPptx, setIsConvertingPptx] = useState(false);
   const [extractedData, setExtractedData] = useState('');
   const [ocrPrompt, setOcrPrompt] = useState('Extract the invoice number, date, and total amount.');
   const [enableCompression, setEnableCompression] = useState(false);
@@ -93,6 +94,7 @@ export function PdfEditor() {
   const imageFileInputRef = useRef<HTMLInputElement>(null);
   const imageToSvgInputRef = useRef<HTMLInputElement>(null);
   const excelFileInputRef = useRef<HTMLInputElement>(null);
+  const pptxFileInputRef = useRef<HTMLInputElement>(null);
   const draggedItemIndex = useRef<number | null>(null);
   const dragOverItemIndex = useRef<number | null>(null);
   const { toast } = useToast();
@@ -400,6 +402,93 @@ export function PdfEditor() {
         if (event.target) event.target.value = '';
     }
 };
+
+  const handlePptxFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = [
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    ];
+
+    if (!validTypes.includes(file.type)) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid File',
+            description: 'Please select a valid PowerPoint file (.pptx).',
+        });
+        return;
+    }
+
+    setIsConvertingPptx(true);
+    toast({ title: 'Converting PowerPoint to PDF...', description: 'This may take a moment.' });
+    
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const zip = await JSZip.loadAsync(arrayBuffer);
+      const pdfDoc = await PDFDocument.create();
+
+      const imagePromises = [];
+      const imagePaths: string[] = [];
+
+      // Find all image files in the ppt/media/ directory
+      zip.folder('ppt/media')?.forEach((relativePath, file) => {
+        if (file.name.match(/\.(jpeg|jpg|png|gif)$/i)) {
+          imagePaths.push(file.name);
+          imagePromises.push(file.async('arraybuffer'));
+        }
+      });
+      
+      const images = await Promise.all(imagePromises);
+
+      if(images.length === 0) {
+        toast({ variant: 'destructive', title: 'No Images Found', description: 'Could not find any images in the PowerPoint file to convert.' });
+        setIsConvertingPptx(false);
+        return;
+      }
+
+      for (const imageBytes of images) {
+        try {
+          const page = pdfDoc.addPage();
+          let image;
+          
+          // We need to know the image type to embed it correctly
+          // This is a basic check, might not cover all cases
+          const isPng = (new Uint8Array(imageBytes.slice(0, 8))).toString() === '137,80,78,71,13,10,26,10';
+
+          if (isPng) {
+            image = await pdfDoc.embedPng(imageBytes);
+          } else {
+            image = await pdfDoc.embedJpg(imageBytes);
+          }
+          
+          const { width, height } = image.scale(1);
+          page.setSize(width, height);
+          page.drawImage(image, { x: 0, y: 0, width, height });
+
+        } catch (e) {
+          console.warn('Skipping an unsupported image format in PPTX file.', e);
+        }
+      }
+
+      const pdfBytes = await pdfDoc.save();
+      const pdfFile = new File([pdfBytes], file.name.replace(/\.pptx$/, '.pdf'), { type: 'application/pdf' });
+      
+      await processAndSetPdf(pdfFile, 0);
+
+      toast({ title: 'PowerPoint converted to PDF successfully!' });
+    } catch (error) {
+      console.error("Error converting PPTX to PDF:", error);
+      toast({
+          variant: 'destructive',
+          title: 'Conversion Failed',
+          description: 'There was an error converting the PowerPoint file to PDF.',
+      });
+    } finally {
+      setIsConvertingPptx(false);
+      if (event.target) event.target.value = '';
+    }
+  };
 
 
 
@@ -971,11 +1060,16 @@ export function PdfEditor() {
                         {isConvertingExcel ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <FileSpreadsheet className="mr-2 h-6 w-6" />}
                         Excel to PDF
                     </Button>
+                     <Button size="lg" variant="outline" onClick={() => pptxFileInputRef.current?.click()} className="text-lg py-6 px-8" disabled={isConvertingPptx}>
+                        {isConvertingPptx ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Presentation className="mr-2 h-6 w-6" />}
+                        PowerPoint to PDF
+                    </Button>
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
                 <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
                 <input type="file" ref={imageToSvgInputRef} onChange={handleImageToSvg} accept="image/*" className="hidden" />
                 <input type="file" ref={excelFileInputRef} onChange={handleExcelFileChange} accept=".xlsx, .xls" className="hidden" />
+                <input type="file" ref={pptxFileInputRef} onChange={handlePptxFileChange} accept=".pptx" className="hidden" />
             </CardContent>
         </Card>
 
@@ -1007,12 +1101,12 @@ export function PdfEditor() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 p-4 bg-card border rounded-lg shadow-sm">
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
             <div className='flex-shrink-0'>
                 <h2 className="font-bold text-lg">{pdfSources[0]?.file.name}</h2>
                 <p className="text-sm text-muted-foreground">{pages.length} pages</p>
             </div>
-             <div className="flex items-center rounded-md border flex-shrink-0">
+             <div className="flex items-center rounded-md border flex-shrink-0 ml-auto">
               <Button onClick={handleDownload} disabled={isDownloading} variant="ghost" className="border-r rounded-r-none">
                 {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
                 {getDownloadButtonText()}
