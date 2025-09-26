@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, ChangeEvent, useEffect } from 'react';
-import { PDFDocument, PDFPage } from 'pdf-lib';
+import { PDFDocument, PDFPage, rgb } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { analyzePageLayout } from '@/lib/actions';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Replace, Trash2 } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2 } from 'lucide-react';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
@@ -19,6 +19,7 @@ type Page = {
   originalIndex: number;
   analysis?: string;
   isAnalyzing?: boolean;
+  isNew?: boolean;
 };
 
 let pdfDoc: pdfjsLib.PDFDocumentProxy | null = null;
@@ -83,6 +84,22 @@ export function PdfEditor() {
     if (pageIndex === -1 || pages[pageIndex].image || !pdfDoc) return;
 
     const pageData = pages[pageIndex];
+    if (pageData.isNew) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 595; // A4 width in points
+      canvas.height = 842; // A4 height in points
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.fillStyle = 'white';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      const imageUrl = canvas.toDataURL('image/jpeg', 0.5);
+      setPages((prev) =>
+        prev.map((p) => (p.id === pageId ? { ...p, image: imageUrl } : p))
+      );
+      return;
+    }
+
     try {
       const page = await pdfDoc.getPage(pageData.originalIndex + 1);
       const viewport = page.getViewport({ scale: 1.0 });
@@ -118,6 +135,16 @@ export function PdfEditor() {
     setPages((prev) => prev.filter((p) => p.id !== id));
     toast({ title: 'Page removed' });
   }, [toast]);
+  
+  const handleAddPage = () => {
+    const newPage: Page = {
+      id: Date.now(),
+      originalIndex: -1, // Indicates a new page
+      isNew: true,
+    };
+    setPages(prev => [...prev, newPage]);
+    toast({ title: 'Blank page added' });
+  };
 
   const handleAnalyzePage = useCallback(async (id: number) => {
     const pageToAnalyze = pages.find((p) => p.id === id);
@@ -148,9 +175,14 @@ export function PdfEditor() {
       const originalPdf = await PDFDocument.load(pdfArrayBuffer);
       const newPdf = await PDFDocument.create();
 
-      const pageIndices = pages.map(p => p.originalIndex);
-      const copiedPages = await newPdf.copyPages(originalPdf, pageIndices);
-      copiedPages.forEach(page => newPdf.addPage(page));
+      for (const page of pages) {
+        if (page.isNew) {
+          newPdf.addPage();
+        } else {
+          const [copiedPage] = await newPdf.copyPages(originalPdf, [page.originalIndex]);
+          newPdf.addPage(copiedPage);
+        }
+      }
 
       const pdfBytes = await newPdf.save();
       
@@ -221,6 +253,9 @@ export function PdfEditor() {
             <Button variant="outline" onClick={handleReset}>
                 <Trash2 /> Reset
             </Button>
+            <Button variant="outline" onClick={handleAddPage}>
+                <Plus /> Add Page
+            </Button>
             <Button onClick={handleDownload} disabled={isDownloading}>
                 {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
                 Download PDF
@@ -252,3 +287,5 @@ export function PdfEditor() {
     </div>
   );
 }
+
+    
