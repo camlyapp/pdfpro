@@ -822,11 +822,13 @@ export function PdfEditor() {
     }
 
     if (enableEncryption && encryptionPassword) {
-      saveOptions.userPassword = encryptionPassword;
-      saveOptions.permissions = {
-        printing: true,
-        copying: true,
-      };
+        const { PermissionFlag } = PDFDocument;
+        saveOptions.userPassword = encryptionPassword;
+        saveOptions.ownerPassword = encryptionPassword;
+        saveOptions.permissions = {
+            printing: PermissionFlag.Print,
+            copying: PermissionFlag.Copy,
+        };
     }
 
 
