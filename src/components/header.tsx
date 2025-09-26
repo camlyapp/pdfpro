@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Icons } from "@/components/icons";
-import { Github } from "lucide-react";
-import { Button } from "./ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export function Header() {
   return (
@@ -14,11 +14,10 @@ export function Header() {
           </span>
         </Link>
         <div className="flex flex-1 items-center justify-end">
-            <Button variant="ghost" size="icon" asChild>
-                <a href="https://github.com/FirebaseExtended/studio-pdf-live" target="_blank" rel="noopener noreferrer">
-                    <Github />
-                </a>
-            </Button>
+          <div className="flex items-center space-x-2">
+            <Switch id="theme-toggle" />
+            <Label htmlFor="theme-toggle">Toggle Theme</Label>
+          </div>
         </div>
       </div>
     </header>
