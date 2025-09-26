@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock, Unlock } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -52,6 +52,7 @@ type PdfSource = {
   file: File;
   arrayBufferForPdfLib: ArrayBuffer;
   pdfjsDoc: pdfjsLib.PDFDocumentProxy;
+  password?: string;
 };
 
 type DownloadFormat = 'pdf' | 'png' | 'jpeg' | 'ppt' | 'xlsx' | 'word';
@@ -104,6 +105,9 @@ export function PdfEditor() {
   const [watermarkFontSize, setWatermarkFontSize] = useState(50);
   const [enableEncryption, setEnableEncryption] = useState(false);
   const [encryptionPassword, setEncryptionPassword] = useState('');
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [pdfForPassword, setPdfForPassword] = useState<{file: File, sourceIndex: number} | null>(null);
+  const [pdfPassword, setPdfPassword] = useState('');
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -125,7 +129,7 @@ export function PdfEditor() {
     }
   };
 
-  const processAndSetPdf = async (file: File, sourceIndex: number) => {
+  const processAndSetPdf = async (file: File, sourceIndex: number, password?: string) => {
     setIsLoading(true);
     resetCompressedState();
     if (sourceIndex === 0) {
@@ -135,11 +139,12 @@ export function PdfEditor() {
       const arrayBuffer = await file.arrayBuffer();
       const arrayBufferForPdfLib = arrayBuffer.slice(0); 
       const arrayBufferForPdfJs = arrayBuffer.slice(0);
-      const pdfjsDoc = await pdfjsLib.getDocument({ data: arrayBufferForPdfJs }).promise;
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBufferForPdfJs, password });
+      const pdfjsDoc = await loadingTask.promise;
       
       setPdfSources(prev => {
         const newSources = [...prev];
-        newSources[sourceIndex] = { file, arrayBufferForPdfLib, pdfjsDoc };
+        newSources[sourceIndex] = { file, arrayBufferForPdfLib, pdfjsDoc, password };
         return newSources;
       });
 
@@ -155,15 +160,29 @@ export function PdfEditor() {
       }
       setPages(prev => [...prev, ...newPages]);
 
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Error Processing PDF',
-        description: 'There was an issue loading your PDF. Please try another file.',
-      });
+    } catch (error: any) {
+        if (error.name === 'PasswordException') {
+            setPdfForPassword({file, sourceIndex});
+            setIsPasswordDialogOpen(true);
+        } else {
+            console.error(error);
+            toast({
+                variant: 'destructive',
+                title: 'Error Processing PDF',
+                description: 'There was an issue loading your PDF. Please try another file.',
+            });
+        }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePasswordSubmit = () => {
+    if (pdfForPassword) {
+      processAndSetPdf(pdfForPassword.file, pdfForPassword.sourceIndex, pdfPassword);
+      setIsPasswordDialogOpen(false);
+      setPdfForPassword(null);
+      setPdfPassword('');
     }
   };
   
@@ -745,9 +764,12 @@ export function PdfEditor() {
 
   const generatePdfBytes = async (quality?: number): Promise<Uint8Array> => {
     const newPdf = await PDFDocument.create();
-    const sourcePdfDocs = pdfSources.length > 0 ? await Promise.all(
-      pdfSources.map(source => PDFDocument.load(source.arrayBufferForPdfLib.slice(0)))
-    ) : [];
+    const sourcePdfDocs = await Promise.all(
+        pdfSources.map(source => {
+            const options = { data: source.arrayBufferForPdfLib.slice(0), password: source.password };
+            return PDFDocument.load(options.data, { password: options.password });
+        })
+    );
 
     const font = await newPdf.embedFont(StandardFonts.Helvetica);
 
@@ -1226,7 +1248,10 @@ const handleDownloadAsWord = async () => {
     try {
         const zip = new JSZip();
         const sourcePdfDocs = pdfSources.length > 0 ? await Promise.all(
-            pdfSources.map(source => PDFDocument.load(source.arrayBufferForPdfLib.slice(0)))
+          pdfSources.map(source => {
+              const options = { data: source.arrayBufferForPdfLib.slice(0), password: source.password };
+              return PDFDocument.load(options.data, { password: options.password });
+          })
         ) : [];
 
         for (let i = 0; i < pages.length; i++) {
@@ -1406,7 +1431,7 @@ const handleDownloadAsWord = async () => {
   if (pages.length === 0) {
     return (
       <div className='space-y-12'>
-        <Card className="max-w-3xl mx-auto text-center shadow-lg border-2 border-primary/20">
+        <Card className="max-w-4xl mx-auto text-center shadow-lg border-2 border-primary/20">
             <CardHeader>
                 <CardTitle className="text-3xl font-bold tracking-tight">The Ultimate PDF Toolkit</CardTitle>
                 <CardDescription className="text-lg text-muted-foreground">
@@ -1465,7 +1490,7 @@ const handleDownloadAsWord = async () => {
 
         <section className="w-full">
             <div className="container mx-auto">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                     <FeatureCard
                         icon={<Shuffle className="h-8 w-8 text-primary" />}
                         title="Reorder & Delete"
@@ -1481,9 +1506,39 @@ const handleDownloadAsWord = async () => {
                         title="Live Preview"
                         description="See your changes in real-time. Every adjustment you make is instantly visible in the page preview."
                     />
+                    <FeatureCard
+                        icon={<Unlock className="h-8 w-8 text-primary" />}
+                        title="Remove Encryption"
+                        description="Upload a password-protected PDF, enter its password, and download a password-free version."
+                    />
                 </div>
             </div>
         </section>
+        
+        <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Password Required</DialogTitle>
+                    <DialogDescription>
+                        This PDF is password protected. Please enter the password to open it.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2">
+                    <Label htmlFor="pdf-password">Password</Label>
+                    <Input
+                        id="pdf-password"
+                        type="password"
+                        value={pdfPassword}
+                        onChange={(e) => setPdfPassword(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+                    />
+                </div>
+                <DialogFooter>
+                    <Button onClick={handlePasswordSubmit}>Unlock PDF</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
       </div>
     );
   }
