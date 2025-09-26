@@ -1,4 +1,5 @@
 import { Header } from '@/components/header';
+import { Footer } from '@/components/footer';
 import { PdfEditor } from '@/components/pdf-editor';
 
 export default function Home() {
@@ -10,6 +11,7 @@ export default function Home() {
           <PdfEditor />
         </div>
       </main>
+      <Footer />
     </div>
   );
 }
