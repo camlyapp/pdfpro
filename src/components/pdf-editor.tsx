@@ -513,7 +513,7 @@ export function PdfEditor() {
                                   id="target-size"
                                   type="number"
                                   value={targetSize}
-                                  onChange={(e) => setTargetSize(Math.max(0, parseFloat(e.target.value)))}
+                                  onChange={(e) => setTargetSize(Math.max(0, parseFloat(e.target.value) || 0))}
                                   className="w-2/3"
                                   min="0"
                               />
