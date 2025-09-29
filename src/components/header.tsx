@@ -76,7 +76,7 @@ export function Header() {
             onMouseLeave={() => setIsToolsPopoverOpen(false)}
           >
             <ScrollArea className="max-h-[75vh]">
-              <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
+              <div className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
                 {toolCategories.map(category => (
                   <div key={category.title} className="space-y-4">
                     <h4 className="font-medium leading-none text-primary">{category.title}</h4>
