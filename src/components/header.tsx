@@ -6,7 +6,7 @@ import Image from "next/image";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from '@/lib/utils';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { ALL_TOOLS, Tool } from '@/lib/tools.tsx';
+import { ALL_TOOLS, Tool } from '@/lib/tools';
 import { ScrollArea } from './ui/scroll-area';
 
 export function Header() {
