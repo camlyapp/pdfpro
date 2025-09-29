@@ -76,19 +76,19 @@ export function Header() {
             onMouseLeave={() => setIsToolsPopoverOpen(false)}
           >
             <ScrollArea className="max-h-[75vh]">
-              <div className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
+              <div className="p-3 md:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-4">
                 {toolCategories.map(category => (
-                  <div key={category.title} className="space-y-4">
+                  <div key={category.title} className="space-y-3">
                     <h4 className="font-medium leading-none text-primary">{category.title}</h4>
                     <div className="grid gap-2">
                       {category.tools.map((tool: Tool) => (
                         <Link
                           key={tool.title}
                           href="/" // All tools are on the home page for now
-                          className="flex items-start gap-4 p-2 rounded-lg transition-all border border-transparent hover:border-border hover:shadow-md hover:bg-card"
+                          className="flex items-start gap-3 p-2 rounded-lg transition-all border border-transparent hover:border-border hover:shadow-sm hover:bg-card"
                           onClick={() => setIsToolsPopoverOpen(false)}
                         >
-                          <div className="p-2 bg-primary/10 rounded-lg mt-1">
+                          <div className="p-1.5 bg-primary/10 rounded-md mt-1">
                             {tool.icon}
                           </div>
                           <div className="flex-1">
