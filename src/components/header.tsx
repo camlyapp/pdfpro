@@ -6,24 +6,21 @@ import Image from "next/image";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from '@/lib/utils';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { ALL_TOOLS, Tool } from '@/lib/tools';
+import { ALL_TOOLS, Tool, ToolCategory } from '@/lib/tools';
 import { ScrollArea } from './ui/scroll-area';
 
-// Define categories
-const toolCategories: { title: string; tools: Tool[] }[] = [
-  {
-    title: 'Create & Convert',
-    tools: ALL_TOOLS.filter(t => ['Upload PDF', 'Scan to PDF', 'Image to PDF', 'Excel to PDF', 'PowerPoint to PDF', 'Word to PDF', 'HTML to PDF', 'Merge PDF'].includes(t.title)),
-  },
-  {
-    title: 'Organize & Secure',
-    tools: ALL_TOOLS.filter(t => ['Split PDF', 'Reorder Pages', 'Protect PDF', 'Unlock PDF'].includes(t.title)),
-  },
-  {
-    title: 'AI Tools',
-    tools: ALL_TOOLS.filter(t => ['Image to SVG'].includes(t.title)),
-  },
-];
+const toolCategories: { title: ToolCategory; tools: Tool[] }[] = (
+  Object.values(ALL_TOOLS.reduce((acc, tool) => {
+    if (!acc[tool.category]) {
+      acc[tool.category] = {
+        title: tool.category,
+        tools: [],
+      };
+    }
+    acc[tool.category].tools.push(tool);
+    return acc;
+  }, {} as Record<ToolCategory, { title: ToolCategory; tools: Tool[] }>)
+));
 
 
 export function Header() {
@@ -73,17 +70,17 @@ export function Header() {
             </div>
           </PopoverTrigger>
           <PopoverContent
-            className="w-screen max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl p-0"
+            className="w-[calc(100vw-2rem)] max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl p-0"
             align="start"
             onMouseEnter={() => setIsToolsPopoverOpen(true)}
             onMouseLeave={() => setIsToolsPopoverOpen(false)}
           >
             <ScrollArea className="max-h-[75vh]">
-              <div className="p-4 md:p-6 space-y-6">
+              <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
                 {toolCategories.map(category => (
-                  <div key={category.title}>
-                    <h4 className="font-medium leading-none mb-4 text-primary">{category.title}</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  <div key={category.title} className="space-y-4">
+                    <h4 className="font-medium leading-none text-primary">{category.title}</h4>
+                    <div className="grid gap-2">
                       {category.tools.map((tool: Tool) => (
                         <Link
                           key={tool.title}
