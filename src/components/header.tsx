@@ -9,6 +9,23 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { ALL_TOOLS, Tool } from '@/lib/tools';
 import { ScrollArea } from './ui/scroll-area';
 
+// Define categories
+const toolCategories: { title: string; tools: Tool[] }[] = [
+  {
+    title: 'Create & Convert',
+    tools: ALL_TOOLS.filter(t => ['Upload PDF', 'Scan to PDF', 'Image to PDF', 'Excel to PDF', 'PowerPoint to PDF', 'Word to PDF', 'HTML to PDF', 'Merge PDF'].includes(t.title)),
+  },
+  {
+    title: 'Organize & Secure',
+    tools: ALL_TOOLS.filter(t => ['Split PDF', 'Reorder Pages', 'Protect PDF', 'Unlock PDF'].includes(t.title)),
+  },
+  {
+    title: 'AI Tools',
+    tools: ALL_TOOLS.filter(t => ['Image to SVG'].includes(t.title)),
+  },
+];
+
+
 export function Header() {
   const [isScrolledDown, setIsScrolledDown] = useState(false);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -62,26 +79,30 @@ export function Header() {
             onMouseLeave={() => setIsToolsPopoverOpen(false)}
           >
             <ScrollArea className="max-h-[75vh]">
-              <div className="p-4 md:p-6">
-                <h4 className="font-medium leading-none mb-4">All PDF Tools</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                  {ALL_TOOLS.map((tool: Tool) => (
-                    <Link
-                      key={tool.title}
-                      href="/" // All tools are on the home page for now
-                      className="flex items-start gap-4 p-2 rounded-lg transition-all border border-transparent hover:border-border hover:shadow-md hover:bg-card"
-                      onClick={() => setIsToolsPopoverOpen(false)}
-                    >
-                      <div className="p-2 bg-primary/10 rounded-lg mt-1">
-                        {tool.icon}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{tool.title}</p>
-                        <p className="text-xs text-muted-foreground">{tool.description}</p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+              <div className="p-4 md:p-6 space-y-6">
+                {toolCategories.map(category => (
+                  <div key={category.title}>
+                    <h4 className="font-medium leading-none mb-4 text-primary">{category.title}</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                      {category.tools.map((tool: Tool) => (
+                        <Link
+                          key={tool.title}
+                          href="/" // All tools are on the home page for now
+                          className="flex items-start gap-4 p-2 rounded-lg transition-all border border-transparent hover:border-border hover:shadow-md hover:bg-card"
+                          onClick={() => setIsToolsPopoverOpen(false)}
+                        >
+                          <div className="p-2 bg-primary/10 rounded-lg mt-1">
+                            {tool.icon}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{tool.title}</p>
+                            <p className="text-xs text-muted-foreground">{tool.description}</p>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             </ScrollArea>
           </PopoverContent>
