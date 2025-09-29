@@ -51,7 +51,7 @@ export function Header() {
             onMouseEnter={() => setIsToolsPopoverOpen(true)}
             onMouseLeave={() => setIsToolsPopoverOpen(false)}
           >
-            <div className="text-sm font-medium cursor-pointer hover:text-primary transition-colors">
+            <div className="hidden sm:block text-sm font-medium cursor-pointer hover:text-primary transition-colors">
               All PDF Tools
             </div>
           </PopoverTrigger>
