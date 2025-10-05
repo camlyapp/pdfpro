@@ -954,7 +954,9 @@ export function PdfEditor() {
     if (enableEncryption && encryptionPassword) {
       saveOptions.userPassword = encryptionPassword;
       saveOptions.ownerPassword = encryptionPassword;
-      // Using raw values to avoid import issues. 4 = Print, 16 = Copy.
+      // Using raw values to avoid import issues
+      // PermissionFlag.Print = 4
+      // PermissionFlag.CopyContents = 16
       saveOptions.permissions = [4, 16];
     }
 
