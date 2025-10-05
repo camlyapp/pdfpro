@@ -67,12 +67,25 @@ export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScal
     e.preventDefault();
     e.stopPropagation();
     
-    if (!ref.current || !onWatermarkChange) return;
+    if (!ref.current || !onWatermarkChange || !watermark) return;
     const cardRect = ref.current.getBoundingClientRect();
+    const watermarkElement = e.currentTarget.parentElement;
+    if (!watermarkElement) return;
+
+    const watermarkRect = watermarkElement.getBoundingClientRect();
+
+    const offsetX = e.clientX - watermarkRect.left;
+    const offsetY = e.clientY - watermarkRect.top;
+
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      const x = ((moveEvent.clientX - cardRect.left) / cardRect.width) * 100;
-      const y = ((moveEvent.clientY - cardRect.top) / cardRect.height) * 100;
+      const newLeft = moveEvent.clientX - cardRect.left - offsetX;
+      const newTop = moveEvent.clientY - cardRect.top - offsetY;
+
+      // Convert pixel position to percentage based on the watermark element's dimensions
+      const x = ((newLeft + watermarkRect.width / 2) / cardRect.width) * 100;
+      const y = ((newTop + watermarkRect.height / 2) / cardRect.height) * 100;
+      
       onWatermarkChange({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
     };
 
