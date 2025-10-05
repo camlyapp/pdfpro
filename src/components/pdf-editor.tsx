@@ -954,10 +954,8 @@ export function PdfEditor() {
     if (enableEncryption && encryptionPassword) {
       saveOptions.userPassword = encryptionPassword;
       saveOptions.ownerPassword = encryptionPassword;
-      saveOptions.permissions = [
-        PDFDocument.PermissionFlag.Print,
-        PDFDocument.PermissionFlag.Copy,
-      ];
+      // Using raw values to avoid import issues. 4 = Print, 16 = Copy.
+      saveOptions.permissions = [4, 16];
     }
 
 
@@ -1828,7 +1826,7 @@ const handleDownloadAsWord = async () => {
             </div>
              <div className="flex items-center rounded-md border flex-shrink-0">
               <Button onClick={handleDownload} disabled={isDownloading} variant="ghost" className="border-r rounded-r-none">
-                {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
+                {isDownloading ? <Loader2 className="animate-spin" /> : (enableEncryption ? <Lock /> : <Download />)}
                 {getDownloadButtonText()}
               </Button>
               <Popover>
@@ -2005,30 +2003,36 @@ const handleDownloadAsWord = async () => {
                                 </div>
                           </TabsContent>
                           <TabsContent value="encrypt">
-                              <div className="py-4 space-y-4">
-                                  <div className="flex items-center justify-between space-x-2">
-                                      <Label htmlFor="encryption-switch" className="flex flex-col space-y-1">
-                                          <span>Enable Encryption</span>
-                                          <span className="font-normal leading-snug text-muted-foreground text-xs">
-                                              Protect your PDF with a password.
-                                          </span>
-                                      </Label>
-                                      <Switch id="encryption-switch" checked={enableEncryption} onCheckedChange={setEnableEncryption} />
-                                  </div>
-                                  {enableEncryption && (
-                                      <div className='space-y-2 pt-2'>
-                                          <Label htmlFor="encryption-password">Password</Label>
-                                          <Input
-                                              id="encryption-password"
-                                              type="password"
-                                              value={encryptionPassword}
-                                              onChange={(e) => setEncryptionPassword(e.target.value)}
-                                              placeholder="Enter password"
-                                          />
-                                      </div>
-                                  )}
-                              </div>
-                          </TabsContent>
+                                <div className="py-4 space-y-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="encryption-password">Password</Label>
+                                        <Input
+                                            id="encryption-password"
+                                            type="password"
+                                            value={encryptionPassword}
+                                            onChange={(e) => setEncryptionPassword(e.target.value)}
+                                            placeholder="Enter password"
+                                            disabled={enableEncryption}
+                                        />
+                                    </div>
+                                    {enableEncryption ? (
+                                        <Button variant="destructive" onClick={() => { setEnableEncryption(false); setEncryptionPassword(''); toast({ title: 'PDF Unlocked' }); }}>
+                                            <Unlock className="mr-2" /> Remove Password
+                                        </Button>
+                                    ) : (
+                                        <Button onClick={() => {
+                                            if (encryptionPassword) {
+                                                setEnableEncryption(true);
+                                                toast({ title: 'PDF Locked', description: 'The downloaded file will be password protected.' });
+                                            } else {
+                                                toast({ variant: 'destructive', title: 'Password Required', description: 'Please enter a password.' });
+                                            }
+                                        }}>
+                                            <Lock className="mr-2" /> Set Password & Lock
+                                        </Button>
+                                    )}
+                                </div>
+                            </TabsContent>
                       </Tabs>
                   </PopoverContent>
               </Popover>
