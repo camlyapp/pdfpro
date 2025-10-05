@@ -1542,6 +1542,26 @@ const handleDownloadAsWord = async () => {
                         title="Extract Data"
                         onClick={() => fileInputRef.current?.click()}
                     />
+                    <ToolCard
+                        icon={<Image className="h-8 w-8 text-primary" />}
+                        title="PDF to Images"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                    <ToolCard
+                        icon={<Presentation className="h-8 w-8 text-primary" />}
+                        title="PDF to PowerPoint"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                    <ToolCard
+                        icon={<FileSpreadsheet className="h-8 w-8 text-primary" />}
+                        title="PDF to Excel"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                    <ToolCard
+                        icon={<FileText className="h-8 w-8 text-primary" />}
+                        title="PDF to Word"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
                 <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
