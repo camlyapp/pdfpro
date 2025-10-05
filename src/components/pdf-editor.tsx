@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, ChangeEvent } from 'react';
+import { useState, useRef, useCallback, ChangeEvent, useEffect } from 'react';
 import { PDFDocument, rgb, StandardFonts, degrees }from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import JSZip from 'jszip';
@@ -137,6 +137,7 @@ export function PdfEditor() {
   const [pdfForPassword, setPdfForPassword] = useState<{file: File, sourceIndex: number} | null>(null);
   const [pdfPassword, setPdfPassword] = useState('');
   const [compressionMode, setCompressionMode] = useState(false);
+  const [compressionQuality, setCompressionQuality] = useState(75);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -888,25 +889,12 @@ export function PdfEditor() {
     return newPdf.save(saveOptions);
   }
   
-  const handleCompress = async () => {
+  const handleCompress = useCallback(async (quality: number) => {
     if (pages.length === 0) return;
     setIsCompressing(true);
     setCompressedPdfBytes(null);
     try {
-      toast({ title: 'Compressing PDF...', description: 'This may take a moment.' });
-      const targetBytes = targetUnit === 'MB' ? targetSize * 1024 * 1024 : targetSize * 1024;
-
-      let minQuality = 0.01;
-      let maxQuality = 1.0;
-      let bestQuality = 0.7; // Start with a reasonable quality
-      let bestPdfBytes: Uint8Array | null = null;
-      let iterations = 0;
-
-      // This is a simplified binary search for the best quality.
-      // It assumes all pages contribute equally to the size, which is not true.
-      // A more sophisticated approach would be needed for perfect target sizing.
-      while (minQuality <= maxQuality && iterations < 8) {
-        const currentQuality = (minQuality + maxQuality) / 2;
+        const qualityValue = quality / 100;
         const newPdf = await PDFDocument.create();
 
         for (const pageInfo of pages) {
@@ -918,9 +906,11 @@ export function PdfEditor() {
             const image = pageInfo.imageType === 'image/png'
               ? await tempDoc.embedPng(pageInfo.imageBytes)
               : await tempDoc.embedJpg(pageInfo.imageBytes);
-            const jpgBytes = await image.asJpg({ quality: currentQuality });
+            const jpgBytes = await image.asJpg({ quality: qualityValue });
             const jpgImage = await newPdf.embedJpg(jpgBytes);
-            pageToAdd.drawImage(jpgImage, { width: pageToAdd.getWidth(), height: pageToAdd.getHeight() });
+            const { width, height } = jpgImage.scale(1);
+            pageToAdd.setSize(width, height);
+            pageToAdd.drawImage(jpgImage, { width, height });
           } else {
             const source = pdfSources[pageInfo.pdfSourceIndex];
             if (source) {
@@ -933,44 +923,20 @@ export function PdfEditor() {
 
               if (context) {
                 await page.render({ canvasContext: context, viewport }).promise;
-                const dataUrl = canvas.toDataURL('image/jpeg');
+                const dataUrl = canvas.toDataURL('image/jpeg', qualityValue);
                 const imageBytes = await fetch(dataUrl).then(res => res.arrayBuffer());
                 
-                const tempDoc = await PDFDocument.create();
-                const tempImage = await tempDoc.embedJpg(imageBytes);
-                const jpgBytes = await tempImage.asJpg({ quality: currentQuality });
-                const jpgImage = await newPdf.embedJpg(jpgBytes);
+                const jpgImage = await newPdf.embedJpg(imageBytes);
 
-                pageToAdd.setSize(viewport.width, viewport.height);
-                pageToAdd.drawImage(jpgImage, { width: pageToAdd.getWidth(), height: pageToAdd.getHeight() });
+                const { width, height } = jpgImage.scale(1);
+                pageToAdd.setSize(width, height);
+                pageToAdd.drawImage(jpgImage, { width: width, height: height });
               }
             }
           }
         }
         const currentPdfBytes = await newPdf.save({ useObjectStreams: false });
-
-        if (currentPdfBytes.length <= targetBytes) {
-          bestPdfBytes = currentPdfBytes;
-          bestQuality = currentQuality;
-          minQuality = currentQuality + 0.01;
-        } else {
-          maxQuality = currentQuality - 0.01;
-        }
-        iterations++;
-      }
-
-      const finalBytes = bestPdfBytes ?? await generatePdfBytes(bestQuality);
-      
-      setCompressedPdfBytes(finalBytes);
-
-      const finalSizeMB = (finalBytes.length / 1024 / 1024).toFixed(2);
-      const finalSizeKB = (finalBytes.length / 1024).toFixed(2);
-      
-      if (finalBytes.length > targetBytes) {
-        toast({ variant: 'destructive', title: 'Compression Limit Reached', description: `Could not compress to below ${targetSize} ${targetUnit}. Final size is ${targetUnit === 'MB' ? finalSizeMB + 'MB' : finalSizeKB + 'KB'}.` });
-      } else {
-        toast({ title: 'Compression Successful', description: `Final size is ${targetUnit === 'MB' ? finalSizeMB + 'MB' : finalSizeKB + 'KB'}. Ready to download.` });
-      }
+        setCompressedPdfBytes(currentPdfBytes);
 
     } catch (error) {
       console.error(error);
@@ -978,7 +944,16 @@ export function PdfEditor() {
     } finally {
       setIsCompressing(false);
     }
-  }
+  }, [pages, pdfSources, toast]);
+
+  useEffect(() => {
+    if (compressionMode && pages.length > 0) {
+      const handler = setTimeout(() => {
+        handleCompress(compressionQuality);
+      }, 500); // Debounce
+      return () => clearTimeout(handler);
+    }
+  }, [compressionQuality, compressionMode, pages, handleCompress]);
 
 
   const handleDownloadPdf = async () => {
@@ -993,11 +968,11 @@ export function PdfEditor() {
     try {
       let pdfBytes: Uint8Array;
 
-      if (enableCompression) {
+      if (compressionMode || enableCompression) {
         if (compressedPdfBytes) {
           pdfBytes = compressedPdfBytes;
         } else {
-            toast({ variant: 'destructive', title: 'Not Compressed', description: 'Please click the resize icon to compress the file first.' });
+            toast({ variant: 'destructive', title: 'Not Compressed', description: 'Please wait for compression to finish or adjust settings.' });
             setIsDownloading(false);
             return;
         }
@@ -1701,51 +1676,43 @@ const handleDownloadAsWord = async () => {
                     <CardDescription>Reduce the file size of your PDF while optimizing for maximal quality.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className='space-y-2 pt-2'>
-                        <h3 className="font-bold text-lg truncate" title={pdfSources[0]?.file.name}>{pdfSources[0]?.file.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {pages.length} pages
-                          {pdfSources[0]?.file.size && ` • Original Size: ${formatBytes(pdfSources[0].file.size)}`}
-                        </p>
-                        <Label htmlFor="target-size">Target File Size</Label>
-                        <div className="flex items-center gap-2">
-                            <Input
-                                id="target-size"
-                                type="number"
-                                value={targetSize}
-                                onChange={(e) => setTargetSize(Math.max(0, parseFloat(e.target.value) || 0))}
-                                className="w-full"
-                                min="0"
-                            />
-                            <Select value={targetUnit} onValueChange={(value: 'MB' | 'KB') => setTargetUnit(value)}>
-                                <SelectTrigger className="w-32">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="MB">MB</SelectItem>
-                                    <SelectItem value="KB">KB</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="outline" size="icon" onClick={handleCompress} disabled={isCompressing}>
-                                        {isCompressing ? <Loader2 className="animate-spin" /> : <Rocket className="h-4 w-4" />}
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Compress File</TooltipContent>
-                            </Tooltip>
+                    <div className='space-y-4 pt-2'>
+                        <div>
+                            <h3 className="font-bold text-lg truncate" title={pdfSources[0]?.file.name}>{pdfSources[0]?.file.name}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {pages.length} pages
+                              {pdfSources[0]?.file.size && ` • Original Size: ${formatBytes(pdfSources[0].file.size)}`}
+                            </p>
                         </div>
-                        {compressedPdfBytes && <p className="text-xs text-muted-foreground pt-1">Ready to download a file of {formatBytes(compressedPdfBytes.length)}</p>}
+                        
+                        <div className="space-y-2">
+                            <div className='flex justify-between items-baseline'>
+                                <Label htmlFor="quality-slider">Compression Quality</Label>
+                                <span className="text-sm font-medium text-muted-foreground">{compressionQuality}%</span>
+                            </div>
+                            <Slider
+                                id="quality-slider"
+                                min={1}
+                                max={100}
+                                step={1}
+                                value={[compressionQuality]}
+                                onValueChange={(value) => setCompressionQuality(value[0])}
+                                disabled={isCompressing}
+                            />
+                        </div>
+
+                        <div className="text-center p-4 bg-muted/50 rounded-lg">
+                            <p className="text-sm text-muted-foreground">Estimated New Size</p>
+                            {isCompressing ? 
+                                <Loader2 className="h-6 w-6 animate-spin mx-auto my-1" /> :
+                                <p className="text-2xl font-bold">
+                                    {compressedPdfBytes ? formatBytes(compressedPdfBytes.length) : '-'}
+                                </p>
+                            }
+                        </div>
                     </div>
                     <div className="flex gap-2">
-                        <Button onClick={async () => {
-                            setEnableCompression(true);
-                            if (!compressedPdfBytes) {
-                                toast({ variant: 'destructive', title: 'Not Compressed', description: 'Please compress the file first.' });
-                                return;
-                            }
-                            await handleDownloadPdf();
-                        }} disabled={isDownloading || !compressedPdfBytes}>
+                        <Button onClick={handleDownloadPdf} disabled={isDownloading || isCompressing || !compressedPdfBytes}>
                             {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
                             Download Compressed PDF
                         </Button>
@@ -1852,7 +1819,7 @@ const handleDownloadAsWord = async () => {
                                               </Select>
                                               <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                  <Button variant="outline" size="icon" onClick={handleCompress} disabled={isCompressing}>
+                                                  <Button variant="outline" size="icon" onClick={() => handleCompress(compressionQuality)} disabled={isCompressing}>
                                                     {isCompressing ? <Loader2 className="animate-spin" /> : <Rocket className="h-4 w-4" />}
                                                   </Button>
                                                 </TooltipTrigger>
@@ -2110,8 +2077,3 @@ const handleDownloadAsWord = async () => {
     </div>
   );
 }
-
-    
-
-
-
