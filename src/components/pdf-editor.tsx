@@ -895,29 +895,61 @@ export function PdfEditor() {
     try {
       toast({ title: 'Compressing PDF...', description: 'This may take a moment.' });
       const targetBytes = targetUnit === 'MB' ? targetSize * 1024 * 1024 : targetSize * 1024;
-      
+
+      const compressedPdf = await PDFDocument.create();
       let minQuality = 0.01;
       let maxQuality = 1.0;
-      let bestQuality = 0.8;
+      let bestQuality = 0.7; // Start with a reasonable quality
       let bestPdfBytes: Uint8Array | null = null;
       let iterations = 0;
 
-      const hasImages = pages.some(p => p.isFromImage);
-      if (!hasImages) {
-        const finalBytes = await generatePdfBytes();
-        setCompressedPdfBytes(finalBytes);
-        const finalSizeMB = (finalBytes.length / 1024 / 1024).toFixed(2);
-        const finalSizeKB = (finalBytes.length / 1024).toFixed(2);
-        toast({ title: 'No images to compress', description: `Final size is ${targetUnit === 'MB' ? finalSizeMB + 'MB' : finalSizeKB + 'KB'}.` });
-        setIsCompressing(false);
-        return;
-      }
-
-
-      while (minQuality <= maxQuality && iterations < 10) {
+      // This is a simplified binary search for the best quality.
+      // It assumes all pages contribute equally to the size, which is not true.
+      // A more sophisticated approach would be needed for perfect target sizing.
+      while (minQuality <= maxQuality && iterations < 8) {
         const currentQuality = (minQuality + maxQuality) / 2;
-        const currentPdfBytes = await generatePdfBytes(currentQuality);
-        
+        const newPdf = await PDFDocument.create();
+
+        for (const pageInfo of pages) {
+          const pageToAdd = newPdf.addPage();
+          if (pageInfo.isNew) {
+            // It's a blank page, just add it
+          } else if (pageInfo.isFromImage && pageInfo.imageBytes) {
+            const image = pageInfo.imageType === 'image/png'
+              ? await newPdf.embedPng(pageInfo.imageBytes)
+              : await newPdf.embedJpg(pageInfo.imageBytes);
+            const jpgBytes = await image.asJpg({ quality: currentQuality });
+            const jpgImage = await newPdf.embedJpg(jpgBytes);
+            pageToAdd.drawImage(jpgImage, { width: pageToAdd.getWidth(), height: pageToAdd.getHeight() });
+          } else {
+            const source = pdfSources[pageInfo.pdfSourceIndex];
+            if (source) {
+              const page = await source.pdfjsDoc.getPage(pageInfo.originalIndex + 1);
+              const viewport = page.getViewport({ scale: 2 }); // Render at higher res for compression
+              const canvas = document.createElement('canvas');
+              const context = canvas.getContext('2d');
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
+
+              if (context) {
+                await page.render({ canvasContext: context, viewport }).promise;
+                const dataUrl = canvas.toDataURL('image/jpeg');
+                const imageBytes = await fetch(dataUrl).then(res => res.arrayBuffer());
+                const image = await newPdf.embedJpg(imageBytes);
+                
+                const tempDoc = await PDFDocument.create();
+                const tempImage = await tempDoc.embedJpg(imageBytes);
+                const jpgBytes = await tempImage.asJpg({ quality: currentQuality });
+                const jpgImage = await newPdf.embedJpg(jpgBytes);
+
+                pageToAdd.setSize(viewport.width, viewport.height);
+                pageToAdd.drawImage(jpgImage, { width: pageToAdd.getWidth(), height: pageToAdd.getHeight() });
+              }
+            }
+          }
+        }
+        const currentPdfBytes = await newPdf.save({ useObjectStreams: false });
+
         if (currentPdfBytes.length <= targetBytes) {
           bestPdfBytes = currentPdfBytes;
           bestQuality = currentQuality;
@@ -927,8 +959,9 @@ export function PdfEditor() {
         }
         iterations++;
       }
-      
+
       const finalBytes = bestPdfBytes ?? await generatePdfBytes(bestQuality);
+      
       setCompressedPdfBytes(finalBytes);
 
       const finalSizeMB = (finalBytes.length / 1024 / 1024).toFixed(2);
@@ -939,6 +972,7 @@ export function PdfEditor() {
       } else {
         toast({ title: 'Compression Successful', description: `Final size is ${targetUnit === 'MB' ? finalSizeMB + 'MB' : finalSizeKB + 'KB'}. Ready to download.` });
       }
+
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Failed to Compress PDF', description: 'An error occurred during compression.' });
@@ -1449,6 +1483,15 @@ const handleDownloadAsWord = async () => {
     }
   };
 
+  const formatBytes = (bytes: number, decimals = 2) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  }
+
 
   if (isLoading && pdfSources.length === 0) {
     return (
@@ -1661,7 +1704,10 @@ const handleDownloadAsWord = async () => {
                 <CardContent className="space-y-6">
                     <div className='space-y-2 pt-2'>
                         <h3 className="font-bold text-lg truncate" title={pdfSources[0]?.file.name}>{pdfSources[0]?.file.name}</h3>
-                        <p className="text-sm text-muted-foreground">{pages.length} pages</p>
+                        <p className="text-sm text-muted-foreground">
+                          {pages.length} pages
+                          {pdfSources[0]?.file.size && ` • Original Size: ${formatBytes(pdfSources[0].file.size)}`}
+                        </p>
                         <Label htmlFor="target-size">Target File Size</Label>
                         <div className="flex items-center gap-2">
                             <Input
@@ -1690,10 +1736,11 @@ const handleDownloadAsWord = async () => {
                                 <TooltipContent>Compress File</TooltipContent>
                             </Tooltip>
                         </div>
-                        {compressedPdfBytes && <p className="text-xs text-muted-foreground pt-1">Ready to download a file of {(compressedPdfBytes.length / 1024 / (targetUnit === 'MB' ? 1024 : 1)).toFixed(2)} {targetUnit}</p>}
+                        {compressedPdfBytes && <p className="text-xs text-muted-foreground pt-1">Ready to download a file of {formatBytes(compressedPdfBytes.length)}</p>}
                     </div>
                     <div className="flex gap-2">
                         <Button onClick={async () => {
+                            setEnableCompression(true);
                             if (!compressedPdfBytes) {
                                 toast({ variant: 'destructive', title: 'Not Compressed', description: 'Please compress the file first.' });
                                 return;
@@ -2066,4 +2113,5 @@ const handleDownloadAsWord = async () => {
 }
 
     
+
 
