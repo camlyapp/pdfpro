@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, ChangeEvent } from 'react';
-import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, degrees }from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import JSZip from 'jszip';
 import pptxgen from 'pptxgenjs';
@@ -136,6 +136,7 @@ export function PdfEditor() {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [pdfForPassword, setPdfForPassword] = useState<{file: File, sourceIndex: number} | null>(null);
   const [pdfPassword, setPdfPassword] = useState('');
+  const [compressionMode, setCompressionMode] = useState(false);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1348,6 +1349,7 @@ const handleDownloadAsWord = async () => {
     setPdfSources([]);
     setPages([]);
     setCompressedPdfBytes(null);
+    setCompressionMode(false);
     if(fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -1468,8 +1470,8 @@ const handleDownloadAsWord = async () => {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                     <ToolCard
+                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <ToolCard
                         icon={<FileUp className="h-8 w-8 text-primary" />}
                         title="Upload PDF"
                         onClick={() => fileInputRef.current?.click()}
@@ -1501,13 +1503,13 @@ const handleDownloadAsWord = async () => {
                         onClick={() => pptxFileInputRef.current?.click()}
                         disabled={isConvertingPptx}
                     />
-                    <ToolCard
+                     <ToolCard
                         icon={isConvertingWord ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileText className="h-8 w-8 text-primary" />}
                         title="Word to PDF"
                         onClick={() => wordFileInputRef.current?.click()}
                         disabled={isConvertingWord}
                     />
-                    <ToolCard
+                     <ToolCard
                         icon={isConvertingHtml ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileText className="h-8 w-8 text-primary" />}
                         title="HTML to PDF"
                         onClick={() => htmlFileInputRef.current?.click()}
@@ -1566,7 +1568,10 @@ const handleDownloadAsWord = async () => {
                      <ToolCard
                         icon={<Gauge className="h-8 w-8 text-primary" />}
                         title="Compress PDF"
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => {
+                            setCompressionMode(true);
+                            fileInputRef.current?.click();
+                        }}
                     />
                     <ToolCard
                         icon={isConvertingToSvg ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileJson className="h-8 w-8 text-primary" />}
@@ -1642,6 +1647,70 @@ const handleDownloadAsWord = async () => {
         </Dialog>
 
       </div>
+    );
+  }
+
+  if (compressionMode) {
+    return (
+        <div className="space-y-8">
+            <Card className="max-w-2xl mx-auto">
+                <CardHeader>
+                    <CardTitle>Compress PDF</CardTitle>
+                    <CardDescription>Reduce the file size of your PDF while optimizing for maximal quality.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className='space-y-2 pt-2'>
+                        <h3 className="font-bold text-lg truncate" title={pdfSources[0]?.file.name}>{pdfSources[0]?.file.name}</h3>
+                        <p className="text-sm text-muted-foreground">{pages.length} pages</p>
+                        <Label htmlFor="target-size">Target File Size</Label>
+                        <div className="flex items-center gap-2">
+                            <Input
+                                id="target-size"
+                                type="number"
+                                value={targetSize}
+                                onChange={(e) => setTargetSize(Math.max(0, parseFloat(e.target.value) || 0))}
+                                className="w-full"
+                                min="0"
+                            />
+                            <Select value={targetUnit} onValueChange={(value: 'MB' | 'KB') => setTargetUnit(value)}>
+                                <SelectTrigger className="w-32">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="MB">MB</SelectItem>
+                                    <SelectItem value="KB">KB</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="outline" size="icon" onClick={handleCompress} disabled={isCompressing}>
+                                        {isCompressing ? <Loader2 className="animate-spin" /> : <Rocket className="h-4 w-4" />}
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Compress File</TooltipContent>
+                            </Tooltip>
+                        </div>
+                        {compressedPdfBytes && <p className="text-xs text-muted-foreground pt-1">Ready to download a file of {(compressedPdfBytes.length / 1024 / (targetUnit === 'MB' ? 1024 : 1)).toFixed(2)} {targetUnit}</p>}
+                    </div>
+                    <div className="flex gap-2">
+                        <Button onClick={async () => {
+                            if (!compressedPdfBytes) {
+                                toast({ variant: 'destructive', title: 'Not Compressed', description: 'Please compress the file first.' });
+                                return;
+                            }
+                            await handleDownloadPdf();
+                        }} disabled={isDownloading || !compressedPdfBytes}>
+                            {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
+                            Download Compressed PDF
+                        </Button>
+                        <Button variant="outline" onClick={handleReset}>
+                            <Trash2 /> Start Over
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
+        </div>
     );
   }
 
@@ -1997,3 +2066,4 @@ const handleDownloadAsWord = async () => {
 }
 
     
+
