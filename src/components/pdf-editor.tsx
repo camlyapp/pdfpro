@@ -896,7 +896,6 @@ export function PdfEditor() {
       toast({ title: 'Compressing PDF...', description: 'This may take a moment.' });
       const targetBytes = targetUnit === 'MB' ? targetSize * 1024 * 1024 : targetSize * 1024;
 
-      const compressedPdf = await PDFDocument.create();
       let minQuality = 0.01;
       let maxQuality = 1.0;
       let bestQuality = 0.7; // Start with a reasonable quality
@@ -915,9 +914,10 @@ export function PdfEditor() {
           if (pageInfo.isNew) {
             // It's a blank page, just add it
           } else if (pageInfo.isFromImage && pageInfo.imageBytes) {
+            const tempDoc = await PDFDocument.create();
             const image = pageInfo.imageType === 'image/png'
-              ? await newPdf.embedPng(pageInfo.imageBytes)
-              : await newPdf.embedJpg(pageInfo.imageBytes);
+              ? await tempDoc.embedPng(pageInfo.imageBytes)
+              : await tempDoc.embedJpg(pageInfo.imageBytes);
             const jpgBytes = await image.asJpg({ quality: currentQuality });
             const jpgImage = await newPdf.embedJpg(jpgBytes);
             pageToAdd.drawImage(jpgImage, { width: pageToAdd.getWidth(), height: pageToAdd.getHeight() });
@@ -935,7 +935,6 @@ export function PdfEditor() {
                 await page.render({ canvasContext: context, viewport }).promise;
                 const dataUrl = canvas.toDataURL('image/jpeg');
                 const imageBytes = await fetch(dataUrl).then(res => res.arrayBuffer());
-                const image = await newPdf.embedJpg(imageBytes);
                 
                 const tempDoc = await PDFDocument.create();
                 const tempImage = await tempDoc.embedJpg(imageBytes);
@@ -2113,5 +2112,6 @@ const handleDownloadAsWord = async () => {
 }
 
     
+
 
 
