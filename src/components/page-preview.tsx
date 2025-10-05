@@ -26,9 +26,16 @@ interface PagePreviewProps {
   onDelete: (id: number) => void;
   onVisible: () => void;
   onImageScaleChange: (id: number, scale: number) => void;
+  watermark?: {
+    enabled: boolean;
+    text: string;
+    opacity: number;
+    rotation: number;
+    fontSize: number;
+  };
 }
 
-export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScaleChange }: PagePreviewProps) {
+export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScaleChange, watermark }: PagePreviewProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
 
@@ -81,6 +88,26 @@ export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScal
     <Card ref={ref} className="group relative overflow-hidden shadow-md hover:shadow-primary/20 hover:shadow-lg transition-shadow duration-300">
       <CardContent className="p-0 aspect-[210/297] relative overflow-hidden">
         {renderContent()}
+        {watermark?.enabled && watermark.text && (
+          <div 
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            style={{
+              transform: `rotate(${watermark.rotation}deg)`,
+            }}
+          >
+            <span
+              className="font-bold text-black break-all"
+              style={{
+                opacity: watermark.opacity,
+                fontSize: `${watermark.fontSize * 0.5}px`, // Scale font size for preview
+                color: 'black',
+                textShadow: '0 0 2px white, 0 0 2px white, 0 0 2px white, 0 0 2px white', // basic stroke
+              }}
+            >
+              {watermark.text}
+            </span>
+          </div>
+        )}
         <Badge variant="secondary" className="absolute top-2 left-2">{pageNumber}</Badge>
         <div className="absolute top-1 right-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Tooltip>

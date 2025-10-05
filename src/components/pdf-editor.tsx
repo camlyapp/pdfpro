@@ -1924,6 +1924,13 @@ const handleDownloadAsWord = async () => {
               onDelete={handleDeletePage}
               onVisible={() => renderPage(page.id)}
               onImageScaleChange={handleImageScaleChange}
+              watermark={{
+                enabled: enableWatermark,
+                text: watermarkText,
+                opacity: watermarkOpacity,
+                rotation: watermarkRotation,
+                fontSize: watermarkFontSize,
+              }}
             />
           </div>
         ))}
