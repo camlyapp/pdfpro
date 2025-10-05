@@ -19,6 +19,7 @@ type Page = {
   isNew?: boolean;
   isFromImage?: boolean;
   imageScale?: number;
+  rotation?: number;
 };
 
 type Watermark = {
@@ -38,11 +39,12 @@ interface PagePreviewProps {
   onDelete: (id: number) => void;
   onVisible: () => void;
   onImageScaleChange: (id: number, scale: number) => void;
+  onRotate: (id: number) => void;
   watermark?: Watermark;
   onWatermarkChange?: (newWatermarkProps: Partial<Watermark>) => void;
 }
 
-export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible, onImageScaleChange, watermark, onWatermarkChange }: PagePreviewProps) {
+export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible, onImageScaleChange, onRotate, watermark, onWatermarkChange }: PagePreviewProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
 
@@ -76,8 +78,11 @@ export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible,
 
     const watermarkRect = watermarkElement.getBoundingClientRect();
 
-    const offsetX = e.clientX - watermarkRect.left;
-    const offsetY = e.clientY - watermarkRect.top;
+    const initialX = watermark.x / 100 * cardRect.width;
+    const initialY = watermark.y / 100 * cardRect.height;
+    
+    const offsetX = e.clientX - cardRect.left - initialX;
+    const offsetY = e.clientY - cardRect.top - initialY;
 
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
@@ -85,8 +90,8 @@ export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible,
       const newTop = moveEvent.clientY - cardRect.top - offsetY;
 
       // Convert pixel position to percentage based on the watermark element's dimensions
-      const x = ((newLeft + watermarkRect.width / 2) / cardRect.width) * 100;
-      const y = ((newTop + watermarkRect.height / 2) / cardRect.height) * 100;
+      const x = (newLeft / cardRect.width) * 100;
+      const y = (newTop / cardRect.height) * 100;
       
       onWatermarkChange({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
     };
@@ -132,9 +137,11 @@ export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible,
   };
 
   const renderContent = () => {
+    const rotationStyle = { transform: `rotate(${page.rotation || 0}deg)` };
+
     if (page.isNew) {
       return (
-        <div className="w-full h-full flex items-center justify-center bg-white border">
+        <div className="w-full h-full flex items-center justify-center bg-white border" style={rotationStyle}>
           <div className="text-center text-muted-foreground">
             <File className="mx-auto h-12 w-12"/>
             <p>Blank Page</p>
@@ -143,11 +150,15 @@ export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible,
       );
     }
     if (page.image) {
-      const imageStyle: React.CSSProperties = page.isFromImage ? { transform: `scale(${page.imageScale ?? 1})`, transition: 'transform 0.2s ease-out' } : {};
+      const imageStyle: React.CSSProperties = {
+        ...rotationStyle,
+        ...(page.isFromImage ? { transform: `${rotationStyle.transform} scale(${page.imageScale ?? 1})` } : {}),
+        transition: 'transform 0.2s ease-out'
+      };
       return <Image src={page.image} alt={`Page ${pageNumber}`} fill className="object-contain" style={imageStyle}/>;
     }
     return (
-      <div className="w-full h-full flex items-center justify-center bg-muted">
+      <div className="w-full h-full flex items-center justify-center bg-muted" style={rotationStyle}>
         <Skeleton className="w-full h-full" />
       </div>
     );
@@ -271,6 +282,23 @@ export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible,
             </PopoverContent>
           </Popover>
         )}
+        
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRotate(page.id);
+              }}
+            >
+              <RotateCw />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Rotate Page</TooltipContent>
+        </Tooltip>
 
         <Tooltip>
           <TooltipTrigger asChild>

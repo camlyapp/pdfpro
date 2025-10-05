@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock, Unlock, Droplet, RotateCcw, Search, CheckSquare, Square } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock, Unlock, Droplet, RotateCcw, Search, CheckSquare, Square, RotateCw } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -46,6 +46,7 @@ type Page = {
   imageBytes?: ArrayBuffer; // For pages created from an image
   imageType?: string; // e.g., 'image/png'
   imageScale?: number;
+  rotation?: number;
 };
 
 type PdfSource = {
@@ -187,6 +188,7 @@ export function PdfEditor() {
           id: Date.now() + i + Math.random(),
           originalIndex: i - 1,
           pdfSourceIndex: sourceIndex,
+          rotation: 0,
         });
       }
       setPages(prev => [...prev, ...newPages]);
@@ -264,6 +266,7 @@ export function PdfEditor() {
             imageBytes: imageBytes,
             imageType: imageFile.type,
             imageScale: 1,
+            rotation: 0,
         };
 
         if (pdfSources.length === 0) {
@@ -843,6 +846,7 @@ export function PdfEditor() {
       originalIndex: -1,
       pdfSourceIndex: -1,
       isNew: true,
+      rotation: 0,
     };
     setPages(prev => [...prev, newPage]);
     toast({ title: 'Blank page added' });
@@ -851,6 +855,11 @@ export function PdfEditor() {
   
   const handleImageScaleChange = (id: number, scale: number) => {
     setPages(prev => prev.map(p => p.id === id ? { ...p, imageScale: scale } : p));
+    resetCompressedState();
+  };
+
+  const handleRotatePage = (id: number) => {
+    setPages(prev => prev.map(p => p.id === id ? { ...p, rotation: ((p.rotation || 0) + 90) % 360 } : p));
     resetCompressedState();
   };
 
@@ -871,11 +880,14 @@ export function PdfEditor() {
     const font = await newPdf.embedFont(StandardFonts.Helvetica);
 
     for (const page of pages) {
+      const pageRotation = page.rotation || 0;
       if (page.isNew) {
-        newPdf.addPage();
+        const newPage = newPdf.addPage();
+        newPage.setRotation(degrees(pageRotation));
       } else if (page.isFromImage && page.imageBytes) {
           const imageBytesCopy = page.imageBytes.slice(0);
           const pageToAdd = newPdf.addPage();
+          pageToAdd.setRotation(degrees(pageRotation));
           
           let image;
           if (quality !== undefined) {
@@ -912,6 +924,7 @@ export function PdfEditor() {
         const sourcePdf = sourcePdfDocs[page.pdfSourceIndex];
         if(sourcePdf) {
           const [copiedPage] = await newPdf.copyPages(sourcePdf, [page.originalIndex]);
+          copiedPage.setRotation(degrees(pageRotation + copiedPage.getRotation().angle));
           newPdf.addPage(copiedPage);
         }
       }
@@ -961,37 +974,48 @@ export function PdfEditor() {
   
       for (const pageInfo of pages) {
         const pageToAdd = newPdf.addPage();
+        pageToAdd.setRotation(degrees(pageInfo.rotation || 0));
+
         if (pageInfo.isNew) {
           // It's a blank page, just add it
         } else if (pageInfo.isFromImage && pageInfo.imageBytes) {
-          const tempDoc = await PDFDocument.create();
-          const image = pageInfo.imageType === 'image/png'
-            ? await tempDoc.embedPng(pageInfo.imageBytes)
-            : await tempDoc.embedJpg(pageInfo.imageBytes);
-          const jpgBytes = await image.asJpg({ quality: qualityValue });
-          const jpgImage = await newPdf.embedJpg(jpgBytes);
-          const { width, height } = jpgImage.scale(1);
-          pageToAdd.setSize(width, height);
-          pageToAdd.drawImage(jpgImage, { width, height });
+            const tempDoc = await PDFDocument.create();
+            const image = pageInfo.imageType === 'image/png'
+              ? await tempDoc.embedPng(pageInfo.imageBytes)
+              : await tempDoc.embedJpg(pageInfo.imageBytes);
+            
+            const jpgBytes = await image.asJpg({ quality: qualityValue });
+            const jpgImage = await newPdf.embedJpg(jpgBytes);
+            const { width, height } = jpgImage.scale(pageInfo.imageScale ?? 1);
+            pageToAdd.setSize(width, height);
+            const x = (pageToAdd.getWidth() - width) / 2;
+            const y = (pageToAdd.getHeight() - height) / 2;
+            pageToAdd.drawImage(jpgImage, { x, y, width, height });
+
         } else {
           const source = pdfSources[pageInfo.pdfSourceIndex];
           if (source) {
-            const page = await source.pdfjsDoc.getPage(pageInfo.originalIndex + 1);
-            const viewport = page.getViewport({ scale: 2 }); // Render at higher res for compression
+            const tempDoc = await PDFDocument.create();
+            const [copiedPage] = await tempDoc.copyPages(source.pdfjsDoc, [pageInfo.originalIndex]);
+
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
+            const viewport = copiedPage.getViewport({ scale: 2 });
             canvas.height = viewport.height;
             canvas.width = viewport.width;
-  
+
             if (context) {
-              await page.render({ canvasContext: context, viewport }).promise;
+              await copiedPage.render({ canvasContext: context, viewport }).promise;
               const dataUrl = canvas.toDataURL('image/jpeg', qualityValue);
               const imageBytes = await fetch(dataUrl).then(res => res.arrayBuffer());
               
               const jpgImage = await newPdf.embedJpg(imageBytes);
-              const { width, height } = jpgImage.scale(1);
-              pageToAdd.setSize(width, height);
-              pageToAdd.drawImage(jpgImage, { width, height });
+              
+              pageToAdd.setSize(viewport.width, viewport.height);
+              pageToAdd.drawImage(jpgImage, {
+                width: viewport.width,
+                height: viewport.height,
+              });
             }
           }
         }
@@ -1615,6 +1639,12 @@ const handleDownloadAsWord = async () => {
           keywords: ['split', 'separate', 'extract pages', 'pdf'],
       },
       {
+          title: 'Rotate Pages',
+          icon: <RotateCw />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['rotate', 'turn', 'flip', 'pages'],
+      },
+      {
           title: 'Reorder Pages',
           icon: <Shuffle />,
           onClick: () => fileInputRef.current?.click(),
@@ -2150,6 +2180,7 @@ const handleDownloadAsWord = async () => {
               onDelete={handleDeletePage}
               onVisible={() => renderPage(page.id)}
               onImageScaleChange={handleImageScaleChange}
+              onRotate={handleRotatePage}
               watermark={{...watermark, opacity: watermark.opacity / 100}}
               onWatermarkChange={handleWatermarkChange}
             />
