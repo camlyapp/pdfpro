@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock, Unlock, Droplet } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock, Unlock, Droplet, RotateCcw } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -56,6 +56,16 @@ type PdfSource = {
 };
 
 type DownloadFormat = 'pdf' | 'png' | 'jpeg' | 'ppt' | 'xlsx' | 'word';
+
+type Watermark = {
+  enabled: boolean;
+  text: string;
+  opacity: number;
+  rotation: number;
+  fontSize: number;
+  x: number;
+  y: number;
+};
 
 
 const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => (
@@ -112,11 +122,15 @@ export function PdfEditor() {
   const [targetUnit, setTargetUnit] = useState<'MB' | 'KB'>('MB');
   const [compressedPdfBytes, setCompressedPdfBytes] = useState<Uint8Array | null>(null);
   const [downloadFormat, setDownloadFormat] = useState<DownloadFormat>('pdf');
-  const [enableWatermark, setEnableWatermark] = useState(false);
-  const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL');
-  const [watermarkOpacity, setWatermarkOpacity] = useState(0.5);
-  const [watermarkRotation, setWatermarkRotation] = useState(-45);
-  const [watermarkFontSize, setWatermarkFontSize] = useState(50);
+  const [watermark, setWatermark] = useState<Watermark>({
+    enabled: false,
+    text: 'CONFIDENTIAL',
+    opacity: 0.5,
+    rotation: -45,
+    fontSize: 50,
+    x: 50,
+    y: 50,
+  });
   const [enableEncryption, setEnableEncryption] = useState(false);
   const [encryptionPassword, setEncryptionPassword] = useState('');
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -776,6 +790,11 @@ export function PdfEditor() {
     resetCompressedState();
   };
 
+  const handleWatermarkChange = (newProps: Partial<Watermark>) => {
+    setWatermark(prev => ({...prev, ...newProps}));
+    resetCompressedState();
+  }
+
   const generatePdfBytes = async (quality?: number): Promise<Uint8Array> => {
     const newPdf = await PDFDocument.create();
     const sourcePdfDocs = await Promise.all(
@@ -834,20 +853,18 @@ export function PdfEditor() {
       }
     }
     
-    if (enableWatermark && watermarkText) {
+    if (watermark.enabled && watermark.text) {
         const pagesToWatermark = newPdf.getPages();
         for (const page of pagesToWatermark) {
             const { width, height } = page.getSize();
-            page.drawText(watermarkText, {
-                x: width / 2,
-                y: height / 2,
+            page.drawText(watermark.text, {
+                x: (watermark.x / 100) * width,
+                y: height - (watermark.y / 100) * height,
                 font,
-                size: watermarkFontSize,
+                size: watermark.fontSize,
                 color: rgb(0, 0, 0),
-                opacity: watermarkOpacity,
-                rotate: degrees(watermarkRotation),
-                xSkew: degrees(15),
-                ySkew: degrees(15),
+                opacity: watermark.opacity,
+                rotate: degrees(watermark.rotation),
             });
         }
     }
@@ -1741,45 +1758,53 @@ const handleDownloadAsWord = async () => {
                                                 Add a text watermark to each page of the PDF.
                                             </span>
                                         </Label>
-                                        <Switch id="watermark-switch" checked={enableWatermark} onCheckedChange={setEnableWatermark} />
+                                        <Switch id="watermark-switch" checked={watermark.enabled} onCheckedChange={(checked) => handleWatermarkChange({ enabled: checked })} />
                                     </div>
-                                    {enableWatermark && (
+                                    {watermark.enabled && (
                                         <div className='space-y-4 pt-2'>
                                             <div className='space-y-2'>
                                                 <Label htmlFor="watermark-text">Watermark Text</Label>
                                                 <Input
                                                     id="watermark-text"
-                                                    value={watermarkText}
-                                                    onChange={(e) => setWatermarkText(e.target.value)}
+                                                    value={watermark.text}
+                                                    onChange={(e) => handleWatermarkChange({ text: e.target.value })}
                                                 />
                                             </div>
                                             <div className='space-y-2'>
-                                                <Label htmlFor="watermark-size">Font Size: {watermarkFontSize}px</Label>
+                                                <Label htmlFor="watermark-size">Font Size: {watermark.fontSize}px</Label>
                                                 <Slider
                                                     id="watermark-size"
                                                     min={10} max={200} step={5}
-                                                    value={[watermarkFontSize]}
-                                                    onValueChange={(v) => setWatermarkFontSize(v[0])}
+                                                    value={[watermark.fontSize]}
+                                                    onValueChange={(v) => handleWatermarkChange({ fontSize: v[0] })}
                                                 />
                                             </div>
                                             <div className='space-y-2'>
-                                                <Label htmlFor="watermark-rotation">Rotation: {watermarkRotation}°</Label>
+                                                <Label htmlFor="watermark-rotation">Rotation: {Math.round(watermark.rotation)}°</Label>
                                                 <Slider
                                                     id="watermark-rotation"
-                                                    min={-90} max={90} step={5}
-                                                    value={[watermarkRotation]}
-                                                    onValueChange={(v) => setWatermarkRotation(v[0])}
+                                                    min={-180} max={180} step={5}
+                                                    value={[watermark.rotation]}
+                                                    onValueChange={(v) => handleWatermarkChange({ rotation: v[0] })}
                                                 />
                                             </div>
                                              <div className='space-y-2'>
-                                                <Label htmlFor="watermark-opacity">Opacity: {Math.round(watermarkOpacity * 100)}%</Label>
+                                                <Label htmlFor="watermark-opacity">Opacity: {Math.round(watermark.opacity * 100)}%</Label>
                                                 <Slider
                                                     id="watermark-opacity"
                                                     min={0.1} max={1} step={0.1}
-                                                    value={[watermarkOpacity]}
-                                                    onValueChange={(v) => setWatermarkOpacity(v[0])}
+                                                    value={[watermark.opacity]}
+                                                    onValueChange={(v) => handleWatermarkChange({ opacity: v[0] })}
                                                 />
                                             </div>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <Button variant="outline" size="sm" onClick={() => handleWatermarkChange({ x: 50, y: 50, rotation: -45 })}>
+                                                    <RotateCcw className="mr-2 h-4 w-4" /> Reset Position
+                                                </Button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>Reset position and rotation</TooltipContent>
+                                            </Tooltip>
                                         </div>
                                     )}
                                 </div>
@@ -1924,13 +1949,8 @@ const handleDownloadAsWord = async () => {
               onDelete={handleDeletePage}
               onVisible={() => renderPage(page.id)}
               onImageScaleChange={handleImageScaleChange}
-              watermark={{
-                enabled: enableWatermark,
-                text: watermarkText,
-                opacity: watermarkOpacity,
-                rotation: watermarkRotation,
-                fontSize: watermarkFontSize,
-              }}
+              watermark={watermark}
+              onWatermarkChange={handleWatermarkChange}
             />
           </div>
         ))}

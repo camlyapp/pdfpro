@@ -6,11 +6,12 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { GripVertical, Trash2, File, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { GripVertical, Trash2, File, ZoomIn, ZoomOut, RotateCcw, Move, RotateCw } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
 import { Slider } from './ui/slider';
 import { Label } from './ui/label';
+import { cn } from '@/lib/utils';
 
 type Page = {
   id: number;
@@ -20,24 +21,32 @@ type Page = {
   imageScale?: number;
 };
 
+type Watermark = {
+  enabled: boolean;
+  text: string;
+  opacity: number;
+  rotation: number;
+  fontSize: number;
+  x: number;
+  y: number;
+}
+
 interface PagePreviewProps {
   page: Page;
   pageNumber: number;
   onDelete: (id: number) => void;
   onVisible: () => void;
   onImageScaleChange: (id: number, scale: number) => void;
-  watermark?: {
-    enabled: boolean;
-    text: string;
-    opacity: number;
-    rotation: number;
-    fontSize: number;
-  };
+  watermark?: Watermark;
+  onWatermarkChange?: (newWatermarkProps: Partial<Watermark>) => void;
 }
 
-export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScaleChange, watermark }: PagePreviewProps) {
+export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScaleChange, watermark, onWatermarkChange }: PagePreviewProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const watermarkRef = useRef<HTMLDivElement>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -56,6 +65,47 @@ export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScal
 
     return () => observer.disconnect();
   }, [onVisible, page.id]);
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!ref.current || !watermark || !onWatermarkChange) return;
+
+    const rect = ref.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    if (isDragging) {
+      onWatermarkChange({ x, y });
+    }
+
+    if (isRotating) {
+        const centerX = watermark.x / 100 * rect.width + rect.left;
+        const centerY = watermark.y / 100 * rect.height + rect.top;
+        const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+        onWatermarkChange({ rotation: angle });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setIsRotating(false);
+    window.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('mouseup', handleMouseUp);
+  };
+  
+  const handleDragMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleRotateMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsRotating(true);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
 
   const renderContent = () => {
     if (page.isNew) {
@@ -85,31 +135,47 @@ export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScal
   };
 
   return (
-    <Card ref={ref} className="group relative overflow-hidden shadow-md hover:shadow-primary/20 hover:shadow-lg transition-shadow duration-300">
+    <Card ref={ref} className="group/card relative overflow-hidden shadow-md hover:shadow-primary/20 hover:shadow-lg transition-shadow duration-300">
       <CardContent className="p-0 aspect-[210/297] relative overflow-hidden">
         {renderContent()}
         {watermark?.enabled && watermark.text && (
-          <div 
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            style={{
-              transform: `rotate(${watermark.rotation}deg)`,
-            }}
-          >
-            <span
-              className="font-bold text-black break-all"
-              style={{
-                opacity: watermark.opacity,
-                fontSize: `${watermark.fontSize * 0.5}px`, // Scale font size for preview
-                color: 'black',
-                textShadow: '0 0 2px white, 0 0 2px white, 0 0 2px white, 0 0 2px white', // basic stroke
-              }}
+            <div
+                ref={watermarkRef}
+                className="group/watermark absolute transform-gpu select-none cursor-grab active:cursor-grabbing"
+                style={{
+                  left: `${watermark.x}%`,
+                  top: `${watermark.y}%`,
+                  transform: `translate(-50%, -50%) rotate(${watermark.rotation}deg)`,
+                }}
             >
-              {watermark.text}
-            </span>
-          </div>
+                <span
+                  className="font-bold text-black break-all whitespace-nowrap"
+                  style={{
+                    opacity: watermark.opacity,
+                    fontSize: `${watermark.fontSize * 0.5}px`, // Scale font size for preview
+                    color: 'black',
+                    textShadow: '0 0 2px white, 0 0 2px white, 0 0 2px white, 0 0 2px white', // basic stroke
+                  }}
+                >
+                  {watermark.text}
+                </span>
+
+                <div 
+                  className="absolute -top-3 -left-3 p-1 rounded-full bg-primary/80 text-primary-foreground opacity-0 group-hover/watermark:opacity-100 transition-opacity cursor-move"
+                  onMouseDown={handleDragMouseDown}
+                >
+                    <Move className="h-3 w-3" />
+                </div>
+                 <div 
+                  className="absolute -bottom-3 -right-3 p-1 rounded-full bg-primary/80 text-primary-foreground opacity-0 group-hover/watermark:opacity-100 transition-opacity cursor-grab"
+                  onMouseDown={handleRotateMouseDown}
+                >
+                    <RotateCw className="h-3 w-3" />
+                </div>
+            </div>
         )}
         <Badge variant="secondary" className="absolute top-2 left-2">{pageNumber}</Badge>
-        <div className="absolute top-1 right-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-1 right-1 flex flex-col gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
             <Tooltip>
                 <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 cursor-move" onMouseDown={(e) => e.stopPropagation()}>
