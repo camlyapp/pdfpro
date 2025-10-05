@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock, Unlock } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock, Unlock, Droplet } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -1525,6 +1525,21 @@ const handleDownloadAsWord = async () => {
                     <ToolCard
                         icon={<Shuffle className="h-8 w-8 text-primary" />}
                         title="Reorder Pages"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                     <ToolCard
+                        icon={<Gauge className="h-8 w-8 text-primary" />}
+                        title="Compress PDF"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                     <ToolCard
+                        icon={<Droplet className="h-8 w-8 text-primary" />}
+                        title="Add Watermark"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                     <ToolCard
+                        icon={<BrainCircuit className="h-8 w-8 text-primary" />}
+                        title="Extract Data"
                         onClick={() => fileInputRef.current?.click()}
                     />
                 </div>
