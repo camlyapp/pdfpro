@@ -68,6 +68,10 @@ type Watermark = {
   y: number;
 };
 
+interface PdfEditorProps {
+  selectedTool: string | null;
+  onToolSelect: (tool: string | null) => void;
+}
 
 const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => (
     <div className="flex flex-col items-center text-center p-6 bg-card rounded-lg shadow-md hover:shadow-primary/20 transition-shadow">
@@ -101,7 +105,7 @@ const sanitizeTextForPdf = (text: string): string => {
   return text.replace(/[^\x00-\x7F\u20AC-\u2122]/g, '');
 };
 
-export function PdfEditor() {
+export function PdfEditor({ selectedTool, onToolSelect }: PdfEditorProps) {
   const [pdfSources, setPdfSources] = useState<PdfSource[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
@@ -154,6 +158,16 @@ export function PdfEditor() {
   const dragOverItemIndex = useRef<number | null>(null);
   const { toast } = useToast();
   
+  useEffect(() => {
+    if (selectedTool) {
+      const tool = allTools.find(t => t.id === selectedTool);
+      if (tool) {
+        tool.onClick();
+      }
+      onToolSelect(null); // Reset after triggering
+    }
+  }, [selectedTool, onToolSelect]);
+
   const resetCompressedState = () => {
     if (compressedPdfBytes) {
       setCompressedPdfBytes(null);
@@ -954,9 +968,6 @@ export function PdfEditor() {
     if (enableEncryption && encryptionPassword) {
       saveOptions.userPassword = encryptionPassword;
       saveOptions.ownerPassword = encryptionPassword;
-      // Using raw values to avoid import issues
-      // PermissionFlag.Print = 4
-      // PermissionFlag.CopyContents = 16
       saveOptions.permissions = [4, 16];
     }
 
@@ -1556,6 +1567,7 @@ const handleDownloadAsWord = async () => {
 
   const allTools = [
       {
+          id: 'upload-pdf',
           title: 'Upload PDF',
           icon: <FileUp />,
           onClick: () => fileInputRef.current?.click(),
@@ -1563,18 +1575,21 @@ const handleDownloadAsWord = async () => {
           isFeatured: true,
       },
       {
+          id: 'scan-to-pdf',
           title: 'Scan to PDF',
           icon: <Camera />,
           onClick: () => setIsScanDialogOpen(true),
           keywords: ['scan', 'camera', 'document', 'mobile'],
       },
       {
+          id: 'image-to-pdf',
           title: 'Image to PDF',
           icon: <ImagePlus />,
           onClick: () => imageFileInputRef.current?.click(),
           keywords: ['image', 'jpg', 'png', 'jpeg', 'convert', 'to pdf'],
       },
       {
+          id: 'excel-to-pdf',
           title: 'Excel to PDF',
           icon: <FileSpreadsheet />,
           onClick: () => excelFileInputRef.current?.click(),
@@ -1582,6 +1597,7 @@ const handleDownloadAsWord = async () => {
           keywords: ['excel', 'xls', 'xlsx', 'spreadsheet', 'convert'],
       },
       {
+          id: 'ppt-to-pdf',
           title: 'PowerPoint to PDF',
           icon: <Presentation />,
           onClick: () => pptxFileInputRef.current?.click(),
@@ -1589,6 +1605,7 @@ const handleDownloadAsWord = async () => {
           keywords: ['powerpoint', 'ppt', 'pptx', 'presentation', 'convert'],
       },
       {
+          id: 'word-to-pdf',
           title: 'Word to PDF',
           icon: <FileText />,
           onClick: () => wordFileInputRef.current?.click(),
@@ -1596,6 +1613,7 @@ const handleDownloadAsWord = async () => {
           keywords: ['word', 'doc', 'docx', 'document', 'convert'],
       },
       {
+          id: 'html-to-pdf',
           title: 'HTML to PDF',
           icon: <FileText />,
           onClick: () => htmlFileInputRef.current?.click(),
@@ -1603,72 +1621,84 @@ const handleDownloadAsWord = async () => {
           keywords: ['html', 'htm', 'webpage', 'convert'],
       },
       {
+          id: 'pdf-to-image',
           title: 'PDF to Images',
           icon: <Image />,
           onClick: () => fileInputRef.current?.click(),
           keywords: ['pdf to image', 'png', 'jpg', 'jpeg', 'convert'],
       },
       {
+          id: 'pdf-to-ppt',
           title: 'PDF to PowerPoint',
           icon: <Presentation />,
           onClick: () => fileInputRef.current?.click(),
           keywords: ['pdf to powerpoint', 'ppt', 'pptx', 'presentation', 'convert'],
       },
       {
+          id: 'pdf-to-excel',
           title: 'PDF to Excel',
           icon: <FileSpreadsheet />,
           onClick: () => fileInputRef.current?.click(),
           keywords: ['pdf to excel', 'xls', 'xlsx', 'spreadsheet', 'extract', 'table'],
       },
       {
+          id: 'pdf-to-word',
           title: 'PDF to Word',
           icon: <FileText />,
           onClick: () => fileInputRef.current?.click(),
           keywords: ['pdf to word', 'doc', 'docx', 'document', 'convert'],
       },
       {
+          id: 'merge-pdf',
           title: 'Merge PDF',
           icon: <Combine />,
           onClick: () => fileInputRef.current?.click(),
           keywords: ['merge', 'combine', 'join', 'pdf'],
       },
       {
+          id: 'split-pdf',
           title: 'Split PDF',
           icon: <Split />,
           onClick: () => fileInputRef.current?.click(),
           keywords: ['split', 'separate', 'extract pages', 'pdf'],
       },
       {
+          id: 'rotate-pdf',
           title: 'Rotate Pages',
           icon: <RotateCw />,
           onClick: () => fileInputRef.current?.click(),
           keywords: ['rotate', 'turn', 'flip', 'pages'],
       },
       {
+          id: 'reorder-pdf',
           title: 'Reorder Pages',
           icon: <Shuffle />,
           onClick: () => fileInputRef.current?.click(),
           keywords: ['reorder', 'sort', 'move', 'pages'],
       },
       {
+          id: 'watermark-pdf',
           title: 'Add Watermark',
           icon: <Droplet />,
           onClick: () => fileInputRef.current?.click(),
           keywords: ['watermark', 'stamp', 'confidential', 'text'],
       },
       {
+          id: 'protect-pdf',
           title: 'Protect PDF',
           icon: <Lock />,
           onClick: () => fileInputRef.current?.click(),
           keywords: ['protect', 'encrypt', 'password', 'secure'],
       },
       {
+          id: 'unlock-pdf',
           title: 'Unlock PDF',
           icon: <Unlock />,
           onClick: () => fileInputRef.current?.click(),
           keywords: ['unlock', 'decrypt', 'remove password', 'unsecure'],
       },
       {
+          id: 'compress-pdf',
           title: 'Compress PDF',
           icon: <Gauge />,
           onClick: () => {
@@ -1677,6 +1707,7 @@ const handleDownloadAsWord = async () => {
           keywords: ['compress', 'resize', 'reduce size', 'optimize'],
       },
       {
+          id: 'image-to-svg',
           title: 'Image to SVG',
           icon: <FileJson />,
           onClick: () => imageToSvgInputRef.current?.click(),
@@ -1684,6 +1715,7 @@ const handleDownloadAsWord = async () => {
           keywords: ['image to svg', 'vector', 'convert', 'trace'],
       },
       {
+          id: 'extract-data',
           title: 'Extract Data',
           icon: <BrainCircuit />,
           onClick: () => fileInputRef.current?.click(),
