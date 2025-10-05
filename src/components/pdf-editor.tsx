@@ -125,7 +125,7 @@ export function PdfEditor() {
   const [watermark, setWatermark] = useState<Watermark>({
     enabled: false,
     text: 'CONFIDENTIAL',
-    opacity: 0.5,
+    opacity: 50,
     rotation: -45,
     fontSize: 50,
     x: 50,
@@ -863,7 +863,7 @@ export function PdfEditor() {
                 font,
                 size: watermark.fontSize,
                 color: rgb(0, 0, 0),
-                opacity: watermark.opacity,
+                opacity: watermark.opacity / 100,
                 rotate: degrees(watermark.rotation),
             });
         }
@@ -1789,10 +1789,10 @@ const handleDownloadAsWord = async () => {
                                                 />
                                             </div>
                                              <div className='space-y-2'>
-                                                <Label htmlFor="watermark-opacity">Opacity: {Math.round(watermark.opacity * 100)}%</Label>
+                                                <Label htmlFor="watermark-opacity">Opacity: {watermark.opacity}%</Label>
                                                 <Slider
                                                     id="watermark-opacity"
-                                                    min={0.1} max={1} step={0.1}
+                                                    min={1} max={100} step={1}
                                                     value={[watermark.opacity]}
                                                     onValueChange={(v) => handleWatermarkChange({ opacity: v[0] })}
                                                 />
@@ -1967,7 +1967,7 @@ const handleDownloadAsWord = async () => {
               onDelete={handleDeletePage}
               onVisible={() => renderPage(page.id)}
               onImageScaleChange={handleImageScaleChange}
-              watermark={watermark}
+              watermark={{...watermark, opacity: watermark.opacity / 100}}
               onWatermarkChange={handleWatermarkChange}
             />
           </div>
