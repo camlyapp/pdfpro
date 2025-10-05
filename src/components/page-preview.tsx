@@ -6,11 +6,12 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { GripVertical, Trash2, File, ZoomIn, ZoomOut, RotateCcw, Move, RotateCw } from 'lucide-react';
+import { GripVertical, Trash2, File, ZoomIn, ZoomOut, RotateCcw, Move, RotateCw, CheckSquare } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
 import { Slider } from './ui/slider';
 import { Label } from './ui/label';
+import { cn } from '@/lib/utils';
 
 type Page = {
   id: number;
@@ -33,6 +34,7 @@ type Watermark = {
 interface PagePreviewProps {
   page: Page;
   pageNumber: number;
+  isSelected: boolean;
   onDelete: (id: number) => void;
   onVisible: () => void;
   onImageScaleChange: (id: number, scale: number) => void;
@@ -40,7 +42,7 @@ interface PagePreviewProps {
   onWatermarkChange?: (newWatermarkProps: Partial<Watermark>) => void;
 }
 
-export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScaleChange, watermark, onWatermarkChange }: PagePreviewProps) {
+export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible, onImageScaleChange, watermark, onWatermarkChange }: PagePreviewProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
 
@@ -157,16 +159,25 @@ export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScal
   };
 
   return (
-    <Card ref={ref} className="group/card relative overflow-hidden shadow-md hover:shadow-primary/20 hover:shadow-lg transition-shadow duration-300">
+    <Card ref={ref} className={cn(
+        "group/card relative overflow-hidden shadow-md hover:shadow-primary/20 hover:shadow-lg transition-shadow duration-300 cursor-pointer",
+        isSelected && "ring-2 ring-primary ring-offset-2"
+        )}>
       <CardContent className="p-0 aspect-[210/297] relative overflow-hidden">
         {renderContent()}
+        {isSelected && (
+            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                <CheckSquare className="h-16 w-16 text-primary-foreground drop-shadow-md" />
+            </div>
+        )}
         {watermark?.enabled && watermark.text && (
             <div
-                className="group/watermark absolute transform-gpu select-none cursor-grab active:cursor-grabbing"
+                className="group/watermark absolute transform-gpu select-none"
                 style={{
                   left: `${watermark.x}%`,
                   top: `${watermark.y}%`,
                   transform: `translate(-50%, -50%) rotate(${watermark.rotation}deg)`,
+                  pointerEvents: isSelected ? 'auto' : 'none',
                 }}
             >
                 <span
@@ -199,7 +210,7 @@ export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScal
         <div className="absolute top-1 right-1 flex flex-col gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 cursor-move" onMouseDown={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 cursor-move" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}>
                         <GripVertical className="h-4 w-4" />
                     </Button>
                 </TooltipTrigger>
@@ -213,14 +224,14 @@ export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScal
             <PopoverTrigger asChild>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => {e.stopPropagation()}}>
                             <ZoomIn />
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>Resize Image</TooltipContent>
                 </Tooltip>
             </PopoverTrigger>
-            <PopoverContent className="w-64" align="end">
+            <PopoverContent className="w-64" align="end" onClick={(e) => e.stopPropagation()}>
                 <div className="grid gap-4">
                     <div className="space-y-2">
                         <h4 className="font-medium leading-none">Image Scale</h4>
@@ -267,7 +278,10 @@ export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScal
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-destructive hover:text-destructive"
-              onClick={() => onDelete(page.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(page.id);
+              }}
             >
               <Trash2 />
             </Button>

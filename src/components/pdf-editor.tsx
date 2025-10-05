@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock, Unlock, Droplet, RotateCcw, Search } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock, Unlock, Droplet, RotateCcw, Search, CheckSquare, Square } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -103,6 +103,8 @@ const sanitizeTextForPdf = (text: string): string => {
 export function PdfEditor() {
   const [pdfSources, setPdfSources] = useState<PdfSource[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
+  const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
+  const [selectionInput, setSelectionInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
@@ -770,9 +772,70 @@ export function PdfEditor() {
   
   const handleDeletePage = useCallback((id: number) => {
     setPages((prev) => prev.filter((p) => p.id !== id));
+    setSelectedPages(prev => {
+        const newSelection = new Set(prev);
+        newSelection.delete(id);
+        return newSelection;
+    });
     toast({ title: 'Page removed' });
     resetCompressedState();
   }, [toast]);
+
+  const handleDeleteSelectedPages = () => {
+    const numSelected = selectedPages.size;
+    if (numSelected === 0) return;
+
+    setPages(prev => prev.filter(p => !selectedPages.has(p.id)));
+    setSelectedPages(new Set());
+    toast({ title: `${numSelected} page${numSelected > 1 ? 's' : ''} deleted`});
+    resetCompressedState();
+  };
+
+  const handleToggleSelection = (pageId: number) => {
+    setSelectedPages(prev => {
+        const newSelection = new Set(prev);
+        if (newSelection.has(pageId)) {
+            newSelection.delete(pageId);
+        } else {
+            newSelection.add(pageId);
+        }
+        return newSelection;
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedPages(new Set(pages.map(p => p.id)));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedPages(new Set());
+  };
+
+  const handleSelectByRange = () => {
+    const newSelection = new Set<number>();
+    const parts = selectionInput.split(',').map(s => s.trim());
+    
+    parts.forEach(part => {
+        if (part.includes('-')) {
+            const [start, end] = part.split('-').map(s => parseInt(s.trim(), 10));
+            if (!isNaN(start) && !isNaN(end)) {
+                for (let i = Math.min(start, end); i <= Math.max(start, end); i++) {
+                    if (i > 0 && i <= pages.length) {
+                        newSelection.add(pages[i - 1].id);
+                    }
+                }
+            }
+        } else {
+            const pageNum = parseInt(part, 10);
+            if (!isNaN(pageNum) && pageNum > 0 && pageNum <= pages.length) {
+                newSelection.add(pages[pageNum - 1].id);
+            }
+        }
+    });
+
+    setSelectedPages(newSelection);
+    toast({ title: `${newSelection.size} pages selected`});
+  };
   
   const handleAddPage = () => {
     const newPage: Page = {
@@ -1354,6 +1417,7 @@ const handleDownloadAsWord = async () => {
   const handleReset = () => {
     setPdfSources([]);
     setPages([]);
+    setSelectedPages(new Set());
     setCompressedPdfBytes(null);
     setCompressionMode(false);
     if(fileInputRef.current) fileInputRef.current.value = '';
@@ -1578,7 +1642,6 @@ const handleDownloadAsWord = async () => {
           title: 'Compress PDF',
           icon: <Gauge />,
           onClick: () => {
-              setCompressionMode(true);
               fileInputRef.current?.click();
           },
           keywords: ['compress', 'resize', 'reduce size', 'optimize'],
@@ -1725,73 +1788,13 @@ const handleDownloadAsWord = async () => {
     );
   }
 
-  if (compressionMode) {
-    return (
-        <div className="space-y-8">
-            <Card className="max-w-2xl mx-auto">
-                <CardHeader>
-                    <CardTitle>Compress PDF</CardTitle>
-                    <CardDescription>Reduce the file size of your PDF while optimizing for maximal quality.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className='space-y-4 pt-2'>
-                        <div>
-                            <h3 className="font-bold text-lg truncate" title={pdfSources[0]?.file.name}>{pdfSources[0]?.file.name}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {pages.length} pages
-                              {pdfSources[0]?.file.size && ` • Original Size: ${formatBytes(pdfSources[0].file.size)}`}
-                            </p>
-                        </div>
-                        
-                        <div className="space-y-2">
-                            <div className='flex justify-between items-baseline'>
-                                <Label htmlFor="quality-slider">Compression Quality</Label>
-                                <span className="text-sm font-medium text-muted-foreground">{compressionQuality}%</span>
-                            </div>
-                            <Slider
-                                id="quality-slider"
-                                min={1}
-                                max={100}
-                                step={1}
-                                value={[compressionQuality]}
-                                onValueChange={(value) => setCompressionQuality(value[0])}
-                                disabled={isCompressing}
-                            />
-                        </div>
-
-                        <div className="text-center p-4 bg-muted/50 rounded-lg">
-                            <p className="text-sm text-muted-foreground">Estimated New Size</p>
-                            {isCompressing ? 
-                                <Loader2 className="h-6 w-6 animate-spin mx-auto my-1" /> :
-                                <p className="text-2xl font-bold">
-                                    {compressedPdfBytes ? formatBytes(compressedPdfBytes.length) : '-'}
-                                </p>
-                            }
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button onClick={handleDownloadPdf} disabled={isDownloading || isCompressing || !compressedPdfBytes}>
-                            {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
-                            Download Compressed PDF
-                        </Button>
-                        <Button variant="outline" onClick={handleReset}>
-                            <Trash2 /> Start Over
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
-        </div>
-    );
-  }
-
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 p-4 bg-card border rounded-lg shadow-sm">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
             <div className='flex-auto min-w-0'>
                 <h2 className="font-bold text-lg truncate" title={pdfSources[0]?.file.name}>{pdfSources[0]?.file.name}</h2>
-                <p className="text-sm text-muted-foreground">{pages.length} pages</p>
+                <p className="text-sm text-muted-foreground">{pages.length} pages {selectedPages.size > 0 ? `• ${selectedPages.size} selected` : ''}</p>
             </div>
              <div className="flex items-center rounded-md border flex-shrink-0">
               <Button onClick={handleDownload} disabled={isDownloading} variant="ghost" className="border-r rounded-r-none">
@@ -2010,6 +2013,40 @@ const handleDownloadAsWord = async () => {
                     <Button variant="outline" onClick={handleReset}>
                         <Trash2 /> Reset
                     </Button>
+                    {selectedPages.size > 0 && (
+                        <Button variant="destructive" onClick={handleDeleteSelectedPages}>
+                            <Trash2 /> Delete {selectedPages.size} Page{selectedPages.size > 1 ? 's' : ''}
+                        </Button>
+                    )}
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline">
+                                <CheckSquare /> Select Pages
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className='w-80'>
+                            <div className='grid gap-4'>
+                                <div className='space-y-2'>
+                                    <h4 className="font-medium leading-none">Select Pages</h4>
+                                    <p className="text-xs text-muted-foreground">
+                                        Enter page numbers or ranges (e.g., 1, 3-5, 8).
+                                    </p>
+                                </div>
+                                <div className='grid gap-2'>
+                                    <Input
+                                        value={selectionInput}
+                                        onChange={(e) => setSelectionInput(e.target.value)}
+                                        placeholder="e.g. 1, 3-5, 8"
+                                    />
+                                    <Button onClick={handleSelectByRange} size="sm">Select</Button>
+                                </div>
+                                <div className='grid grid-cols-2 gap-2'>
+                                    <Button onClick={handleSelectAll} variant="secondary" size="sm">Select All</Button>
+                                    <Button onClick={handleClearSelection} variant="secondary" size="sm">Clear Selection</Button>
+                                </div>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
                     <Button variant="outline" onClick={handleAddPage}>
                         <Plus /> Add Page
                     </Button>
@@ -2104,10 +2141,12 @@ const handleDownloadAsWord = async () => {
             onDragEnd={handleDragEnd}
             onDragOver={(e) => e.preventDefault()}
             className="relative transition-transform duration-300 ease-in-out"
+            onClick={() => handleToggleSelection(page.id)}
           >
             <PagePreview
               page={page}
               pageNumber={index + 1}
+              isSelected={selectedPages.has(page.id)}
               onDelete={handleDeletePage}
               onVisible={() => renderPage(page.id)}
               onImageScaleChange={handleImageScaleChange}
