@@ -1797,6 +1797,24 @@ const handleDownloadAsWord = async () => {
                                                     onValueChange={(v) => handleWatermarkChange({ opacity: v[0] })}
                                                 />
                                             </div>
+                                            <div className='space-y-2'>
+                                                <Label htmlFor="watermark-x">Horizontal Position: {Math.round(watermark.x)}%</Label>
+                                                <Slider
+                                                    id="watermark-x"
+                                                    min={0} max={100} step={1}
+                                                    value={[watermark.x]}
+                                                    onValueChange={(v) => handleWatermarkChange({ x: v[0] })}
+                                                />
+                                            </div>
+                                            <div className='space-y-2'>
+                                                <Label htmlFor="watermark-y">Vertical Position: {Math.round(watermark.y)}%</Label>
+                                                <Slider
+                                                    id="watermark-y"
+                                                    min={0} max={100} step={1}
+                                                    value={[watermark.y]}
+                                                    onValueChange={(v) => handleWatermarkChange({ y: v[0] })}
+                                                />
+                                            </div>
                                             <Tooltip>
                                               <TooltipTrigger asChild>
                                                 <Button variant="outline" size="sm" onClick={() => handleWatermarkChange({ x: 50, y: 50, rotation: -45 })}>
