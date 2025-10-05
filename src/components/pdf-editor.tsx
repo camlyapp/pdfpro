@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, ChangeEvent, useEffect } from 'react';
+import React, { useState, useRef, useCallback, ChangeEvent, useEffect } from 'react';
 import { PDFDocument, rgb, StandardFonts, degrees }from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import JSZip from 'jszip';
@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock, Unlock, Droplet, RotateCcw } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock, Unlock, Droplet, RotateCcw, Search } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -78,16 +78,16 @@ const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode, titl
     </div>
 );
 
-const ToolCard = ({ icon, title, onClick, disabled = false }: { icon: React.ReactNode, title: string, onClick: () => void, disabled?: boolean}) => (
+const ToolCard = ({ icon, title, onClick, disabled = false, isFeatured = false }: { icon: React.ReactNode, title: string, onClick: () => void, disabled?: boolean, isFeatured?: boolean}) => (
     <button
         onClick={onClick}
         disabled={disabled}
-        className="flex flex-col items-center justify-center p-4 bg-card rounded-lg shadow-md hover:shadow-primary/20 transition-all aspect-square border hover:border-primary disabled:opacity-50 disabled:pointer-events-none"
+        className={`flex flex-col items-center justify-center p-4 bg-card rounded-lg shadow-md hover:shadow-primary/20 transition-all aspect-square border hover:border-primary disabled:opacity-50 disabled:pointer-events-none ${isFeatured ? 'col-span-2 row-span-2' : ''}`}
     >
-        <div className="p-3 bg-primary/10 rounded-full mb-3">
-            {icon}
+        <div className={`p-3 bg-primary/10 rounded-full mb-3 ${isFeatured ? 'p-6' : ''}`}>
+            {React.cloneElement(icon as React.ReactElement, { className: isFeatured ? 'h-12 w-12 text-primary' : 'h-8 w-8 text-primary' })}
         </div>
-        <h3 className="text-base font-semibold text-center">{title}</h3>
+        <h3 className={`${isFeatured ? 'text-xl' : 'text-base'} font-semibold text-center`}>{title}</h3>
     </button>
 );
 
@@ -136,6 +136,7 @@ export function PdfEditor() {
   const [pdfForPassword, setPdfForPassword] = useState<{file: File, sourceIndex: number} | null>(null);
   const [pdfPassword, setPdfPassword] = useState('');
   const [compressionMode, setCompressionMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -892,50 +893,49 @@ export function PdfEditor() {
     setIsCompressing(true);
     setCompressedPdfBytes(null);
     try {
-        const qualityValue = quality / 100;
-        const newPdf = await PDFDocument.create();
-
-        for (const pageInfo of pages) {
-          const pageToAdd = newPdf.addPage();
-          if (pageInfo.isNew) {
-            // It's a blank page, just add it
-          } else if (pageInfo.isFromImage && pageInfo.imageBytes) {
-            const tempDoc = await PDFDocument.create();
-            const image = pageInfo.imageType === 'image/png'
-              ? await tempDoc.embedPng(pageInfo.imageBytes)
-              : await tempDoc.embedJpg(pageInfo.imageBytes);
-            const jpgBytes = await image.asJpg({ quality: qualityValue });
-            const jpgImage = await newPdf.embedJpg(jpgBytes);
-            const { width, height } = jpgImage.scale(1);
-            pageToAdd.setSize(width, height);
-            pageToAdd.drawImage(jpgImage, { width, height });
-          } else {
-            const source = pdfSources[pageInfo.pdfSourceIndex];
-            if (source) {
-              const page = await source.pdfjsDoc.getPage(pageInfo.originalIndex + 1);
-              const viewport = page.getViewport({ scale: 2 }); // Render at higher res for compression
-              const canvas = document.createElement('canvas');
-              const context = canvas.getContext('2d');
-              canvas.height = viewport.height;
-              canvas.width = viewport.width;
-
-              if (context) {
-                await page.render({ canvasContext: context, viewport }).promise;
-                const dataUrl = canvas.toDataURL('image/jpeg', qualityValue);
-                const imageBytes = await fetch(dataUrl).then(res => res.arrayBuffer());
-                
-                const jpgImage = await newPdf.embedJpg(imageBytes);
-
-                const { width, height } = jpgImage.scale(1);
-                pageToAdd.setSize(width, height);
-                pageToAdd.drawImage(jpgImage, { width: width, height: height });
-              }
+      const qualityValue = quality / 100;
+      const newPdf = await PDFDocument.create();
+  
+      for (const pageInfo of pages) {
+        const pageToAdd = newPdf.addPage();
+        if (pageInfo.isNew) {
+          // It's a blank page, just add it
+        } else if (pageInfo.isFromImage && pageInfo.imageBytes) {
+          const tempDoc = await PDFDocument.create();
+          const image = pageInfo.imageType === 'image/png'
+            ? await tempDoc.embedPng(pageInfo.imageBytes)
+            : await tempDoc.embedJpg(pageInfo.imageBytes);
+          const jpgBytes = await image.asJpg({ quality: qualityValue });
+          const jpgImage = await newPdf.embedJpg(jpgBytes);
+          const { width, height } = jpgImage.scale(1);
+          pageToAdd.setSize(width, height);
+          pageToAdd.drawImage(jpgImage, { width, height });
+        } else {
+          const source = pdfSources[pageInfo.pdfSourceIndex];
+          if (source) {
+            const page = await source.pdfjsDoc.getPage(pageInfo.originalIndex + 1);
+            const viewport = page.getViewport({ scale: 2 }); // Render at higher res for compression
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+  
+            if (context) {
+              await page.render({ canvasContext: context, viewport }).promise;
+              const dataUrl = canvas.toDataURL('image/jpeg', qualityValue);
+              const imageBytes = await fetch(dataUrl).then(res => res.arrayBuffer());
+              
+              const jpgImage = await newPdf.embedJpg(imageBytes);
+              const { width, height } = jpgImage.scale(1);
+              pageToAdd.setSize(width, height);
+              pageToAdd.drawImage(jpgImage, { width, height });
             }
           }
         }
-        const currentPdfBytes = await newPdf.save({ useObjectStreams: false });
-        setCompressedPdfBytes(currentPdfBytes);
-
+      }
+      const currentPdfBytes = await newPdf.save({ useObjectStreams: false });
+      setCompressedPdfBytes(currentPdfBytes);
+  
     } catch (error: any) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Failed to Compress PDF', description: error.message || 'An error occurred during compression.' });
@@ -1466,6 +1466,143 @@ const handleDownloadAsWord = async () => {
   
   const originalSize = pdfSources.reduce((acc, s) => acc + s.arrayBufferForPdfLib.byteLength, 0);
 
+  const allTools = [
+      {
+          title: 'Upload PDF',
+          icon: <FileUp />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['upload', 'pdf', 'open', 'select', 'file'],
+          isFeatured: true,
+      },
+      {
+          title: 'Scan to PDF',
+          icon: <Camera />,
+          onClick: () => setIsScanDialogOpen(true),
+          keywords: ['scan', 'camera', 'document', 'mobile'],
+      },
+      {
+          title: 'Image to PDF',
+          icon: <ImagePlus />,
+          onClick: () => imageFileInputRef.current?.click(),
+          keywords: ['image', 'jpg', 'png', 'jpeg', 'convert', 'to pdf'],
+      },
+      {
+          title: 'Excel to PDF',
+          icon: <FileSpreadsheet />,
+          onClick: () => excelFileInputRef.current?.click(),
+          disabled: isConvertingExcel,
+          keywords: ['excel', 'xls', 'xlsx', 'spreadsheet', 'convert'],
+      },
+      {
+          title: 'PowerPoint to PDF',
+          icon: <Presentation />,
+          onClick: () => pptxFileInputRef.current?.click(),
+          disabled: isConvertingPptx,
+          keywords: ['powerpoint', 'ppt', 'pptx', 'presentation', 'convert'],
+      },
+      {
+          title: 'Word to PDF',
+          icon: <FileText />,
+          onClick: () => wordFileInputRef.current?.click(),
+          disabled: isConvertingWord,
+          keywords: ['word', 'doc', 'docx', 'document', 'convert'],
+      },
+      {
+          title: 'HTML to PDF',
+          icon: <FileText />,
+          onClick: () => htmlFileInputRef.current?.click(),
+          disabled: isConvertingHtml,
+          keywords: ['html', 'htm', 'webpage', 'convert'],
+      },
+      {
+          title: 'PDF to Images',
+          icon: <Image />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['pdf to image', 'png', 'jpg', 'jpeg', 'convert'],
+      },
+      {
+          title: 'PDF to PowerPoint',
+          icon: <Presentation />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['pdf to powerpoint', 'ppt', 'pptx', 'presentation', 'convert'],
+      },
+      {
+          title: 'PDF to Excel',
+          icon: <FileSpreadsheet />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['pdf to excel', 'xls', 'xlsx', 'spreadsheet', 'extract', 'table'],
+      },
+      {
+          title: 'PDF to Word',
+          icon: <FileText />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['pdf to word', 'doc', 'docx', 'document', 'convert'],
+      },
+      {
+          title: 'Merge PDF',
+          icon: <Combine />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['merge', 'combine', 'join', 'pdf'],
+      },
+      {
+          title: 'Split PDF',
+          icon: <Split />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['split', 'separate', 'extract pages', 'pdf'],
+      },
+      {
+          title: 'Reorder Pages',
+          icon: <Shuffle />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['reorder', 'sort', 'move', 'pages'],
+      },
+      {
+          title: 'Add Watermark',
+          icon: <Droplet />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['watermark', 'stamp', 'confidential', 'text'],
+      },
+      {
+          title: 'Protect PDF',
+          icon: <Lock />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['protect', 'encrypt', 'password', 'secure'],
+      },
+      {
+          title: 'Unlock PDF',
+          icon: <Unlock />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['unlock', 'decrypt', 'remove password', 'unsecure'],
+      },
+      {
+          title: 'Compress PDF',
+          icon: <Gauge />,
+          onClick: () => {
+              setCompressionMode(true);
+              fileInputRef.current?.click();
+          },
+          keywords: ['compress', 'resize', 'reduce size', 'optimize'],
+      },
+      {
+          title: 'Image to SVG',
+          icon: <FileJson />,
+          onClick: () => imageToSvgInputRef.current?.click(),
+          disabled: isConvertingToSvg,
+          keywords: ['image to svg', 'vector', 'convert', 'trace'],
+      },
+      {
+          title: 'Extract Data',
+          icon: <BrainCircuit />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['extract', 'data', 'ocr', 'ai', 'json'],
+      },
+  ];
+
+  const filteredTools = allTools.filter(tool =>
+    tool.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    tool.keywords.some(keyword => keyword.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
 
   if (isLoading && pdfSources.length === 0) {
     return (
@@ -1487,121 +1624,38 @@ const handleDownloadAsWord = async () => {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    <ToolCard
-                        icon={<FileUp className="h-8 w-8 text-primary" />}
-                        title="Upload PDF"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                    <Dialog open={isScanDialogOpen} onOpenChange={setIsScanDialogOpen}>
-                        <DialogTrigger asChild>
-                             <ToolCard
-                                icon={<Camera className="h-8 w-8 text-primary" />}
-                                title="Scan to PDF"
-                                onClick={() => {}}
-                            />
-                        </DialogTrigger>
-                        <ScanDocument onScanComplete={handleScanComplete} open={isScanDialogOpen} />
-                    </Dialog>
-                    <ToolCard
-                        icon={<ImagePlus className="h-8 w-8 text-primary" />}
-                        title="Image to PDF"
-                        onClick={() => imageFileInputRef.current?.click()}
-                    />
-                    <ToolCard
-                        icon={isConvertingExcel ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileSpreadsheet className="h-8 w-8 text-primary" />}
-                        title="Excel to PDF"
-                        onClick={() => excelFileInputRef.current?.click()}
-                        disabled={isConvertingExcel}
-                    />
-                    <ToolCard
-                        icon={isConvertingPptx ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <Presentation className="h-8 w-8 text-primary" />}
-                        title="PowerPoint to PDF"
-                        onClick={() => pptxFileInputRef.current?.click()}
-                        disabled={isConvertingPptx}
-                    />
-                     <ToolCard
-                        icon={isConvertingWord ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileText className="h-8 w-8 text-primary" />}
-                        title="Word to PDF"
-                        onClick={() => wordFileInputRef.current?.click()}
-                        disabled={isConvertingWord}
-                    />
-                     <ToolCard
-                        icon={isConvertingHtml ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileText className="h-8 w-8 text-primary" />}
-                        title="HTML to PDF"
-                        onClick={() => htmlFileInputRef.current?.click()}
-                        disabled={isConvertingHtml}
-                    />
-                    <ToolCard
-                        icon={<Image className="h-8 w-8 text-primary" />}
-                        title="PDF to Images"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                     <ToolCard
-                        icon={<Presentation className="h-8 w-8 text-primary" />}
-                        title="PDF to PowerPoint"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                    <ToolCard
-                        icon={<FileSpreadsheet className="h-8 w-8 text-primary" />}
-                        title="PDF to Excel"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                    <ToolCard
-                        icon={<FileText className="h-8 w-8 text-primary" />}
-                        title="PDF to Word"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                    <ToolCard
-                        icon={<Combine className="h-8 w-8 text-primary" />}
-                        title="Merge PDF"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                    <ToolCard
-                        icon={<Split className="h-8 w-8 text-primary" />}
-                        title="Split PDF"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                    <ToolCard
-                        icon={<Shuffle className="h-8 w-8 text-primary" />}
-                        title="Reorder Pages"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                    <ToolCard
-                        icon={<Droplet className="h-8 w-8 text-primary" />}
-                        title="Add Watermark"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                     <ToolCard
-                        icon={<Lock className="h-8 w-8 text-primary" />}
-                        title="Protect PDF"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                     <ToolCard
-                        icon={<Unlock className="h-8 w-8 text-primary" />}
-                        title="Unlock PDF"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                     <ToolCard
-                        icon={<Gauge className="h-8 w-8 text-primary" />}
-                        title="Compress PDF"
-                        onClick={() => {
-                            setCompressionMode(true);
-                            fileInputRef.current?.click();
-                        }}
-                    />
-                    <ToolCard
-                        icon={isConvertingToSvg ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileJson className="h-8 w-8 text-primary" />}
-                        title="Image to SVG"
-                        onClick={() => imageToSvgInputRef.current?.click()}
-                        disabled={isConvertingToSvg}
-                    />
-                     <ToolCard
-                        icon={<BrainCircuit className="h-8 w-8 text-primary" />}
-                        title="Extract Data"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
+                 <div className="mb-8 max-w-lg mx-auto">
+                    <div className="relative">
+                        <Input
+                            placeholder="Search for a tool (e.g., 'merge', 'compress')..."
+                            className="w-full h-12 pl-12 pr-4 text-base"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    </div>
                 </div>
+
+                {filteredTools.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-[1fr]">
+                        {filteredTools.map((tool, index) => (
+                           <ToolCard
+                                key={tool.title}
+                                icon={tool.icon}
+                                title={tool.title}
+                                onClick={tool.onClick}
+                                disabled={tool.disabled}
+                                isFeatured={tool.isFeatured && searchQuery === ''}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-16">
+                        <p className="text-lg font-semibold">No tools found for "{searchQuery}"</p>
+                        <p className="text-muted-foreground">Try a different search term.</p>
+                    </div>
+                )}
+                
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/pdf" className="hidden" />
                 <input type="file" ref={imageFileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
                 <input type="file" ref={imageToSvgInputRef} onChange={handleImageToSvg} accept="image/*" className="hidden" />
@@ -1639,6 +1693,10 @@ const handleDownloadAsWord = async () => {
             </div>
         </section>
         
+        <Dialog open={isScanDialogOpen} onOpenChange={setIsScanDialogOpen}>
+          <ScanDocument onScanComplete={handleScanComplete} open={isScanDialogOpen} />
+        </Dialog>
+
         <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
             <DialogContent>
                 <DialogHeader>
