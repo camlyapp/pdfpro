@@ -118,8 +118,7 @@ export function PdfEditor() {
   const [extractedData, setExtractedData] = useState('');
   const [ocrPrompt, setOcrPrompt] = useState('Extract the invoice number, date, and total amount.');
   const [enableCompression, setEnableCompression] = useState(false);
-  const [targetSize, setTargetSize] = useState<number>(1);
-  const [targetUnit, setTargetUnit] = useState<'MB' | 'KB'>('MB');
+  const [compressionQuality, setCompressionQuality] = useState(75);
   const [compressedPdfBytes, setCompressedPdfBytes] = useState<Uint8Array | null>(null);
   const [downloadFormat, setDownloadFormat] = useState<DownloadFormat>('pdf');
   const [watermark, setWatermark] = useState<Watermark>({
@@ -137,7 +136,6 @@ export function PdfEditor() {
   const [pdfForPassword, setPdfForPassword] = useState<{file: File, sourceIndex: number} | null>(null);
   const [pdfPassword, setPdfPassword] = useState('');
   const [compressionMode, setCompressionMode] = useState(false);
-  const [compressionQuality, setCompressionQuality] = useState(75);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -155,7 +153,7 @@ export function PdfEditor() {
   const resetCompressedState = () => {
     if (compressedPdfBytes) {
       setCompressedPdfBytes(null);
-      toast({ title: "Edits detected", description: "Please re-compress your PDF before downloading.", variant: 'default' });
+      toast({ title: "Edits detected", description: "Please re-compress your PDF to see updated size.", variant: 'default' });
     }
   };
 
@@ -938,22 +936,22 @@ export function PdfEditor() {
         const currentPdfBytes = await newPdf.save({ useObjectStreams: false });
         setCompressedPdfBytes(currentPdfBytes);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Failed to Compress PDF', description: 'An error occurred during compression.' });
+      toast({ variant: 'destructive', title: 'Failed to Compress PDF', description: error.message || 'An error occurred during compression.' });
     } finally {
       setIsCompressing(false);
     }
   }, [pages, pdfSources, toast]);
 
   useEffect(() => {
-    if (compressionMode && pages.length > 0) {
+    if (enableCompression && pages.length > 0) {
       const handler = setTimeout(() => {
         handleCompress(compressionQuality);
       }, 500); // Debounce
       return () => clearTimeout(handler);
     }
-  }, [compressionQuality, compressionMode, pages, handleCompress]);
+  }, [compressionQuality, enableCompression, pages, handleCompress]);
 
 
   const handleDownloadPdf = async () => {
@@ -968,7 +966,7 @@ export function PdfEditor() {
     try {
       let pdfBytes: Uint8Array;
 
-      if (compressionMode || enableCompression) {
+      if (enableCompression) {
         if (compressedPdfBytes) {
           pdfBytes = compressedPdfBytes;
         } else {
@@ -1465,6 +1463,8 @@ const handleDownloadAsWord = async () => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   }
+  
+  const originalSize = pdfSources.reduce((acc, s) => acc + s.arrayBufferForPdfLib.byteLength, 0);
 
 
   if (isLoading && pdfSources.length === 0) {
@@ -1797,37 +1797,41 @@ const handleDownloadAsWord = async () => {
                                       <Switch id="compression-switch" checked={enableCompression} onCheckedChange={setEnableCompression} />
                                   </div>
                                   {enableCompression && (
-                                      <div className='space-y-2 pt-2'>
-                                          <Label htmlFor="target-size">Target File Size</Label>
-                                          <div className="flex items-center gap-2">
-                                              <Input
-                                                  id="target-size"
-                                                  type="number"
-                                                  value={targetSize}
-                                                  onChange={(e) => setTargetSize(Math.max(0, parseFloat(e.target.value) || 0))}
-                                                  className="w-full"
-                                                  min="0"
-                                              />
-                                              <Select value={targetUnit} onValueChange={(value: 'MB' | 'KB') => setTargetUnit(value)}>
-                                                  <SelectTrigger className="w-32">
-                                                      <SelectValue />
-                                                  </SelectTrigger>
-                                                  <SelectContent>
-                                                      <SelectItem value="MB">MB</SelectItem>
-                                                      <SelectItem value="KB">KB</SelectItem>
-                                                  </SelectContent>
-                                              </Select>
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                  <Button variant="outline" size="icon" onClick={() => handleCompress(compressionQuality)} disabled={isCompressing}>
-                                                    {isCompressing ? <Loader2 className="animate-spin" /> : <Rocket className="h-4 w-4" />}
-                                                  </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>Resize File</TooltipContent>
-                                              </Tooltip>
+                                    <div className='space-y-4 pt-2'>
+                                      <div className="space-y-2">
+                                          <div className='flex justify-between items-baseline'>
+                                              <Label htmlFor="quality-slider">Compression Quality</Label>
+                                              <span className="text-sm font-medium text-muted-foreground">{compressionQuality}%</span>
                                           </div>
-                                          {compressedPdfBytes && <p className="text-xs text-muted-foreground pt-1">Ready to download a file of {(compressedPdfBytes.length / 1024 / (targetUnit === 'MB' ? 1024 : 1)).toFixed(2)} {targetUnit}</p>}
+                                          <Slider
+                                              id="quality-slider"
+                                              min={1}
+                                              max={100}
+                                              step={1}
+                                              value={[compressionQuality]}
+                                              onValueChange={(value) => setCompressionQuality(value[0])}
+                                              disabled={isCompressing}
+                                          />
                                       </div>
+
+                                      <div className="grid grid-cols-2 gap-4 text-center p-2 bg-muted/50 rounded-lg">
+                                          <div>
+                                              <p className="text-xs text-muted-foreground">Original Size</p>
+                                              <p className="text-lg font-bold">
+                                                  {formatBytes(originalSize)}
+                                              </p>
+                                          </div>
+                                          <div>
+                                              <p className="text-xs text-muted-foreground">New Size</p>
+                                              {isCompressing ? 
+                                                  <Loader2 className="h-6 w-6 animate-spin mx-auto my-1" /> :
+                                                  <p className="text-lg font-bold">
+                                                      {compressedPdfBytes ? formatBytes(compressedPdfBytes.length) : '-'}
+                                                  </p>
+                                              }
+                                          </div>
+                                      </div>
+                                    </div>
                                   )}
                               </div>
                           </TabsContent>
