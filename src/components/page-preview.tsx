@@ -11,7 +11,6 @@ import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
 import { Slider } from './ui/slider';
 import { Label } from './ui/label';
-import { cn } from '@/lib/utils';
 
 type Page = {
   id: number;
@@ -43,10 +42,7 @@ interface PagePreviewProps {
 
 export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScaleChange, watermark, onWatermarkChange }: PagePreviewProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const watermarkRef = useRef<HTMLDivElement>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isRotating, setIsRotating] = useState(false);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -66,46 +62,59 @@ export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScal
     return () => observer.disconnect();
   }, [onVisible, page.id]);
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!ref.current || !watermark || !onWatermarkChange) return;
-
-    const rect = ref.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    
-    if (isDragging) {
-      onWatermarkChange({ x, y });
-    }
-
-    if (isRotating) {
-        const centerX = watermark.x / 100 * rect.width + rect.left;
-        const centerY = watermark.y / 100 * rect.height + rect.top;
-        const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
-        onWatermarkChange({ rotation: angle });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    setIsRotating(false);
-    window.removeEventListener('mousemove', handleMouseMove);
-    window.removeEventListener('mouseup', handleMouseUp);
-  };
   
   const handleDragMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
-    setIsDragging(true);
+    e.stopPropagation();
+    
+    if (!ref.current || !onWatermarkChange) return;
+    const cardRect = ref.current.getBoundingClientRect();
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const x = ((moveEvent.clientX - cardRect.left) / cardRect.width) * 100;
+      const y = ((moveEvent.clientY - cardRect.top) / cardRect.height) * 100;
+      onWatermarkChange({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
   };
 
   const handleRotateMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
-    setIsRotating(true);
+    e.stopPropagation();
+
+    if (!ref.current || !watermark || !onWatermarkChange) return;
+    const cardRect = ref.current.getBoundingClientRect();
+    const watermarkElement = e.currentTarget.parentElement;
+    
+    if (!watermarkElement) return;
+
+    const watermarkRect = watermarkElement.getBoundingClientRect();
+    const centerX = watermarkRect.left + watermarkRect.width / 2 - cardRect.left;
+    const centerY = watermarkRect.top + watermarkRect.height / 2 - cardRect.top;
+
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - cardRect.left - centerX;
+      const dy = moveEvent.clientY - cardRect.top - centerY;
+      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+      onWatermarkChange({ rotation: angle });
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
   };
-
 
   const renderContent = () => {
     if (page.isNew) {
@@ -140,7 +149,6 @@ export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScal
         {renderContent()}
         {watermark?.enabled && watermark.text && (
             <div
-                ref={watermarkRef}
                 className="group/watermark absolute transform-gpu select-none cursor-grab active:cursor-grabbing"
                 style={{
                   left: `${watermark.x}%`,
@@ -167,7 +175,7 @@ export function PagePreview({ page, pageNumber, onDelete, onVisible, onImageScal
                     <Move className="h-3 w-3" />
                 </div>
                  <div 
-                  className="absolute -bottom-3 -right-3 p-1 rounded-full bg-primary/80 text-primary-foreground opacity-0 group-hover/watermark:opacity-100 transition-opacity cursor-grab"
+                  className="absolute -bottom-3 -right-3 p-1 rounded-full bg-primary/80 text-primary-foreground opacity-0 group-hover/watermark:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
                   onMouseDown={handleRotateMouseDown}
                 >
                     <RotateCw className="h-3 w-3" />
