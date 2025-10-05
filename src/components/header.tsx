@@ -2,13 +2,39 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useState, useEffect } from 'react';
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from '@/lib/utils';
 
 export function Header() {
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      // Hide header on scroll down, show on scroll up
+      if (currentScrollY > lastScrollY && currentScrollY > 80) {
+        setIsVisible(false);
+      } else {
+        setIsVisible(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [lastScrollY]);
+
   return (
     <header className={cn(
-        "sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+        "sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-transform duration-300",
+        {
+          '-translate-y-full': !isVisible
+        }
       )}>
       <div className="container flex h-16 items-center">
         <Link href="/" className="mr-6 flex items-center space-x-2">
