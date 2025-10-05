@@ -28,6 +28,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+       {
+        protocol: 'https',
+        hostname: 'pdfpro.app', // Replace with your actual domain
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };
