@@ -1473,12 +1473,6 @@ const handleDownloadAsWord = async () => {
                         onClick={() => imageFileInputRef.current?.click()}
                     />
                     <ToolCard
-                        icon={isConvertingToSvg ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileJson className="h-8 w-8 text-primary" />}
-                        title="Image to SVG"
-                        onClick={() => imageToSvgInputRef.current?.click()}
-                        disabled={isConvertingToSvg}
-                    />
-                    <ToolCard
                         icon={isConvertingExcel ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileSpreadsheet className="h-8 w-8 text-primary" />}
                         title="Excel to PDF"
                         onClick={() => excelFileInputRef.current?.click()}
@@ -1503,51 +1497,11 @@ const handleDownloadAsWord = async () => {
                         disabled={isConvertingHtml}
                     />
                     <ToolCard
-                        icon={<Combine className="h-8 w-8 text-primary" />}
-                        title="Merge PDF"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                    <ToolCard
-                        icon={<Split className="h-8 w-8 text-primary" />}
-                        title="Split PDF"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                     <ToolCard
-                        icon={<Lock className="h-8 w-8 text-primary" />}
-                        title="Protect PDF"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                     <ToolCard
-                        icon={<Unlock className="h-8 w-8 text-primary" />}
-                        title="Unlock PDF"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                    <ToolCard
-                        icon={<Shuffle className="h-8 w-8 text-primary" />}
-                        title="Reorder Pages"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                     <ToolCard
-                        icon={<Gauge className="h-8 w-8 text-primary" />}
-                        title="Compress PDF"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                     <ToolCard
-                        icon={<Droplet className="h-8 w-8 text-primary" />}
-                        title="Add Watermark"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                     <ToolCard
-                        icon={<BrainCircuit className="h-8 w-8 text-primary" />}
-                        title="Extract Data"
-                        onClick={() => fileInputRef.current?.click()}
-                    />
-                    <ToolCard
                         icon={<Image className="h-8 w-8 text-primary" />}
                         title="PDF to Images"
                         onClick={() => fileInputRef.current?.click()}
                     />
-                    <ToolCard
+                     <ToolCard
                         icon={<Presentation className="h-8 w-8 text-primary" />}
                         title="PDF to PowerPoint"
                         onClick={() => fileInputRef.current?.click()}
@@ -1560,6 +1514,52 @@ const handleDownloadAsWord = async () => {
                     <ToolCard
                         icon={<FileText className="h-8 w-8 text-primary" />}
                         title="PDF to Word"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                    <ToolCard
+                        icon={<Combine className="h-8 w-8 text-primary" />}
+                        title="Merge PDF"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                    <ToolCard
+                        icon={<Split className="h-8 w-8 text-primary" />}
+                        title="Split PDF"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                    <ToolCard
+                        icon={<Shuffle className="h-8 w-8 text-primary" />}
+                        title="Reorder Pages"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                    <ToolCard
+                        icon={<Droplet className="h-8 w-8 text-primary" />}
+                        title="Add Watermark"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                     <ToolCard
+                        icon={<Lock className="h-8 w-8 text-primary" />}
+                        title="Protect PDF"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                     <ToolCard
+                        icon={<Unlock className="h-8 w-8 text-primary" />}
+                        title="Unlock PDF"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                     <ToolCard
+                        icon={<Gauge className="h-8 w-8 text-primary" />}
+                        title="Compress PDF"
+                        onClick={() => fileInputRef.current?.click()}
+                    />
+                    <ToolCard
+                        icon={isConvertingToSvg ? <Loader2 className="h-8 w-8 text-primary animate-spin" /> : <FileJson className="h-8 w-8 text-primary" />}
+                        title="Image to SVG"
+                        onClick={() => imageToSvgInputRef.current?.click()}
+                        disabled={isConvertingToSvg}
+                    />
+                     <ToolCard
+                        icon={<BrainCircuit className="h-8 w-8 text-primary" />}
+                        title="Extract Data"
                         onClick={() => fileInputRef.current?.click()}
                     />
                 </div>
