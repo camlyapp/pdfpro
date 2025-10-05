@@ -83,7 +83,7 @@ const ToolCard = ({ icon, title, onClick, disabled = false, isFeatured = false }
     <button
         onClick={onClick}
         disabled={disabled}
-        className={`flex flex-col items-center justify-center p-4 bg-card rounded-lg shadow-md hover:shadow-primary/20 transition-all aspect-square border hover:border-primary disabled:opacity-50 disabled:pointer-events-none ${isFeatured ? 'col-span-2 row-span-2' : ''}`}
+        className={`flex flex-col items-center justify-center p-4 bg-card rounded-lg shadow-md hover:shadow-primary/20 transition-all aspect-square border hover:border-primary disabled:opacity-50 disabled:pointer-events-none ${isFeatured ? 'col-span-2 row-span-2 bg-primary/5' : ''}`}
     >
         <div className={`p-3 bg-primary/10 rounded-full mb-3 ${isFeatured ? 'p-6' : ''}`}>
             {React.cloneElement(icon as React.ReactElement, { className: isFeatured ? 'h-12 w-12 text-primary' : 'h-8 w-8 text-primary' })}
@@ -1709,7 +1709,7 @@ const handleDownloadAsWord = async () => {
   if (pages.length === 0) {
     return (
       <div className='space-y-12'>
-        <Card className="max-w-6xl mx-auto text-center shadow-lg border-2 border-primary/20">
+        <Card className="max-w-6xl mx-auto text-center shadow-lg bg-card/50">
             <CardHeader>
                 <CardTitle className="text-3xl font-bold tracking-tight">The Ultimate PDF Toolkit</CardTitle>
                 <CardDescription className="text-lg text-muted-foreground">
