@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { PagePreview } from '@/components/page-preview';
-import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock, Unlock, Droplet, RotateCcw, Search, CheckSquare, Square, RotateCw } from 'lucide-react';
+import { Download, FileUp, Loader2, Plus, Replace, Trash2, Combine, Shuffle, ZoomIn, FilePlus, Info, ImagePlus, Settings, Gauge, ChevronDown, Rocket, Image, FileJson, Copy, BrainCircuit, Presentation, FileSpreadsheet, Split, Camera, FileText, Lock, Unlock, Droplet, RotateCcw, Search, CheckSquare, Square, RotateCw, Crop } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -47,6 +47,8 @@ type Page = {
   imageType?: string; // e.g., 'image/png'
   imageScale?: number;
   rotation?: number;
+  crop?: { x: number; y: number; width: number; height: number }; // Crop data in percentages
+  originalPageId?: number; // To reference the original page for cropping
 };
 
 type PdfSource = {
@@ -747,6 +749,15 @@ export function PdfEditor({ selectedTool, onToolSelect }: PdfEditorProps) {
     if (pageIndex === -1 || pages[pageIndex].image) return;
 
     const pageData = pages[pageIndex];
+    if (pageData.crop && pageData.originalPageId) {
+        const originalPage = pages.find(p => p.id === pageData.originalPageId);
+        if (originalPage?.image) {
+            setPages(prev => prev.map(p => p.id === pageId ? { ...p, image: originalPage.image } : p));
+        } else if (originalPage) {
+            await renderPage(originalPage.id);
+        }
+        return;
+    }
 
     if (pageData.isNew || pageData.isFromImage) {
       return;
@@ -882,6 +893,37 @@ export function PdfEditor({ selectedTool, onToolSelect }: PdfEditorProps) {
     resetCompressedState();
   }
 
+  const handleApplyCrop = (pageId: number, crop: { x: number, y: number, width: number, height: number }) => {
+    const originalPageIndex = pages.findIndex(p => p.id === pageId);
+    if (originalPageIndex === -1) return;
+
+    const originalPage = pages[originalPageIndex];
+
+    const newPage: Page = {
+        id: Date.now(),
+        originalIndex: -1, 
+        pdfSourceIndex: -1,
+        isNew: false,
+        isFromImage: false,
+        crop,
+        originalPageId: originalPage.crop ? originalPage.originalPageId : originalPage.id, // Chain crops back to the very first original
+        rotation: 0,
+        // Carry over image data if already loaded
+        image: originalPage.image,
+        imageBytes: originalPage.imageBytes,
+        imageType: originalPage.imageType,
+    };
+
+    setPages(prev => {
+        const newPages = [...prev];
+        newPages.splice(originalPageIndex + 1, 0, newPage);
+        return newPages;
+    });
+
+    toast({ title: "Page cropped", description: "A new page has been created with the cropped area." });
+    resetCompressedState();
+};
+
   const generatePdfBytes = async (quality?: number): Promise<Uint8Array> => {
     const newPdf = await PDFDocument.create();
     const sourcePdfDocs = await Promise.all(
@@ -893,11 +935,66 @@ export function PdfEditor({ selectedTool, onToolSelect }: PdfEditorProps) {
 
     const font = await newPdf.embedFont(StandardFonts.Helvetica);
 
+    const findOriginalPageData = (page: Page): {imageBytes?: ArrayBuffer, imageType?: string, sourcePdf?: PDFDocument, originalIndex?: number} => {
+        if (page.originalPageId) {
+            const originalPage = pages.find(p => p.id === page.originalPageId);
+            if (originalPage) {
+                return findOriginalPageData(originalPage);
+            }
+        }
+        return {
+            imageBytes: page.imageBytes,
+            imageType: page.imageType,
+            sourcePdf: page.pdfSourceIndex !== -1 ? sourcePdfDocs[page.pdfSourceIndex] : undefined,
+            originalIndex: page.originalIndex
+        };
+    };
+
     for (const page of pages) {
       const pageRotation = page.rotation || 0;
       if (page.isNew) {
         const newPage = newPdf.addPage();
         newPage.setRotation(degrees(pageRotation));
+      } else if (page.crop) {
+        const { imageBytes, imageType, sourcePdf, originalIndex } = findOriginalPageData(page);
+
+        if (imageBytes && imageType) {
+            const image = imageType === 'image/png' ? await newPdf.embedPng(imageBytes) : await newPdf.embedJpg(imageBytes);
+            const { width: origWidth, height: origHeight } = image.scale(1);
+            
+            const cropWidth = origWidth * page.crop.width / 100;
+            const cropHeight = origHeight * page.crop.height / 100;
+
+            const newPage = newPdf.addPage([cropWidth, cropHeight]);
+
+            newPage.drawImage(image, {
+                x: -origWidth * page.crop.x / 100,
+                y: -origHeight * (100 - page.crop.y - page.crop.height) / 100 + cropHeight - origHeight,
+                width: origWidth,
+                height: origHeight,
+            });
+            newPage.setRotation(degrees(pageRotation));
+        } else if (sourcePdf && originalIndex !== undefined && originalIndex !== -1) {
+            const [copiedPage] = await newPdf.copyPages(sourcePdf, [originalIndex]);
+            
+            const { width: origWidth, height: origHeight } = copiedPage.getSize();
+            const cropWidth = origWidth * page.crop.width / 100;
+            const cropHeight = origHeight * page.crop.height / 100;
+
+            const newPage = newPdf.addPage([cropWidth, cropHeight]);
+            
+            copiedPage.setCropBox(
+                origWidth * page.crop.x / 100,
+                origHeight * (1 - (page.crop.y / 100) - (page.crop.height / 100)),
+                cropWidth,
+                cropHeight
+            );
+            
+            const embeddedPage = await newPdf.embedPage(copiedPage);
+            newPage.drawPage(embeddedPage, { x: 0, y: 0, width: cropWidth, height: cropHeight });
+            newPage.setRotation(degrees(pageRotation));
+        }
+
       } else if (page.isFromImage && page.imageBytes) {
           const imageBytesCopy = page.imageBytes.slice(0);
           const pageToAdd = newPdf.addPage();
@@ -2219,6 +2316,7 @@ const handleDownloadAsWord = async () => {
               onRotate={handleRotatePage}
               watermark={{...watermark, opacity: watermark.opacity / 100}}
               onWatermarkChange={handleWatermarkChange}
+              onCrop={handleApplyCrop}
             />
           </div>
         ))}

@@ -6,12 +6,13 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { GripVertical, Trash2, File, ZoomIn, ZoomOut, RotateCcw, Move, RotateCw, CheckSquare } from 'lucide-react';
+import { GripVertical, Trash2, File, ZoomIn, ZoomOut, RotateCcw, Move, RotateCw, CheckSquare, Crop } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
 import { Slider } from './ui/slider';
 import { Label } from './ui/label';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 
 type Page = {
   id: number;
@@ -20,6 +21,7 @@ type Page = {
   isFromImage?: boolean;
   imageScale?: number;
   rotation?: number;
+  crop?: { x: number; y: number; width: number; height: number };
 };
 
 type Watermark = {
@@ -42,12 +44,17 @@ interface PagePreviewProps {
   onRotate: (id: number) => void;
   watermark?: Watermark;
   onWatermarkChange?: (newWatermarkProps: Partial<Watermark>) => void;
+  onCrop: (id: number, crop: { x: number, y: number, width: number, height: number }) => void;
 }
 
-export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible, onImageScaleChange, onRotate, watermark, onWatermarkChange }: PagePreviewProps) {
+export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible, onImageScaleChange, onRotate, watermark, onWatermarkChange, onCrop }: PagePreviewProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
-
+  const [isCropDialogOpen, setIsCropDialogOpen] = useState(false);
+  const [crop, setCrop] = useState({ x: 10, y: 10, width: 80, height: 80 });
+  const cropImageRef = useRef<HTMLImageElement>(null);
+  const cropBoxRef = useRef<HTMLDivElement>(null);
+  
   useEffect(() => {
     if (!ref.current) return;
 
@@ -136,6 +143,66 @@ export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible,
     window.addEventListener('mouseup', handleMouseUp);
   };
 
+  const handleCropBoxDrag = (e: React.MouseEvent, corner: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!cropImageRef.current) return;
+    const imgRect = cropImageRef.current.getBoundingClientRect();
+    
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startCrop = { ...crop };
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const dx = (moveEvent.clientX - startX) / imgRect.width * 100;
+      const dy = (moveEvent.clientY - startY) / imgRect.height * 100;
+      
+      let newCrop = { ...startCrop };
+
+      if (corner.includes('right')) {
+        newCrop.width = Math.min(100 - newCrop.x, startCrop.width + dx);
+      }
+      if (corner.includes('left')) {
+        newCrop.width = startCrop.width - dx;
+        newCrop.x = startCrop.x + dx;
+      }
+      if (corner.includes('bottom')) {
+        newCrop.height = Math.min(100 - newCrop.y, startCrop.height + dy);
+      }
+      if (corner.includes('top')) {
+        newCrop.height = startCrop.height - dy;
+        newCrop.y = startCrop.y + dy;
+      }
+      
+      if (corner === 'move') {
+        newCrop.x = Math.max(0, Math.min(100 - newCrop.width, startCrop.x + dx));
+        newCrop.y = Math.max(0, Math.min(100 - newCrop.height, startCrop.y + dy));
+      }
+
+      // Clamp values
+      newCrop.x = Math.max(0, newCrop.x);
+      newCrop.y = Math.max(0, newCrop.y);
+      newCrop.width = Math.max(1, Math.min(100 - newCrop.x, newCrop.width));
+      newCrop.height = Math.max(1, Math.min(100 - newCrop.y, newCrop.height));
+
+      setCrop(newCrop);
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleApplyCrop = () => {
+    onCrop(page.id, crop);
+    setIsCropDialogOpen(false);
+  }
+
   const renderContent = () => {
     const rotationStyle = { transform: `rotate(${page.rotation || 0}deg)` };
 
@@ -150,6 +217,31 @@ export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible,
       );
     }
     if (page.image) {
+      if (page.crop) {
+        const { x, y, width, height } = page.crop;
+        const outerStyle: React.CSSProperties = {
+            ...rotationStyle,
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden',
+            position: 'relative'
+        };
+        const innerStyle: React.CSSProperties = {
+            position: 'absolute',
+            left: `-${x / width * 100}%`,
+            top: `-${y / height * 100}%`,
+            width: `${100 / width * 100}%`,
+            height: `${100 / height * 100}%`,
+        };
+         return (
+            <div style={outerStyle}>
+                <div style={innerStyle}>
+                    <Image src={page.image} alt={`Page ${pageNumber}`} fill className="object-contain"/>
+                </div>
+            </div>
+        );
+      }
+
       const imageStyle: React.CSSProperties = {
         ...rotationStyle,
         ...(page.isFromImage ? { transform: `${rotationStyle.transform} scale(${page.imageScale ?? 1})` } : {}),
@@ -283,6 +375,47 @@ export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible,
           </Popover>
         )}
         
+        <Dialog open={isCropDialogOpen} onOpenChange={setIsCropDialogOpen}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                  <Crop />
+                </Button>
+              </DialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent>Crop Page</TooltipContent>
+          </Tooltip>
+          <DialogContent className="max-w-4xl" onInteractOutside={(e) => e.preventDefault()}>
+            <DialogHeader>
+              <DialogTitle>Crop Page {pageNumber}</DialogTitle>
+            </DialogHeader>
+            <div className="relative w-full aspect-[210/297] bg-muted overflow-hidden" style={{ maxHeight: '70vh' }}>
+              <Image ref={cropImageRef} src={page.image || ''} alt={`Page ${pageNumber}`} fill className="object-contain" />
+              <div
+                ref={cropBoxRef}
+                className="absolute border-2 border-primary bg-primary/20 cursor-move"
+                style={{
+                  left: `${crop.x}%`,
+                  top: `${crop.y}%`,
+                  width: `${crop.width}%`,
+                  height: `${crop.height}%`,
+                }}
+                onMouseDown={(e) => handleCropBoxDrag(e, 'move')}
+              >
+                <div className="absolute -top-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary cursor-nwse-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'top-left')}></div>
+                <div className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary cursor-nesw-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'top-right')}></div>
+                <div className="absolute -bottom-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary cursor-nesw-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'bottom-left')}></div>
+                <div className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary cursor-nwse-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'bottom-right')}></div>
+              </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsCropDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleApplyCrop}>Apply Crop</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
