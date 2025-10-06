@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { FileUp, Combine, Split, RotateCw, Shuffle, Droplet, Lock, Unlock, Gauge, FileJson, BrainCircuit, FileSpreadsheet, Presentation, FileText, Image as ImageIcon, ChevronDown, Menu } from 'lucide-react';
@@ -157,6 +157,10 @@ export function Header({ onToolSelect }: HeaderProps) {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[90vw] max-w-[90vw] h-[80vh] flex flex-col rounded-lg bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+              <DialogHeader>
+                <DialogTitle className="sr-only">All Tools</DialogTitle>
+                <DialogDescription className="sr-only">A grid of all available PDF tools.</DialogDescription>
+              </DialogHeader>
               <ScrollArea className="flex-1">
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-6">
                     {allToolsFlat.map(item => (
