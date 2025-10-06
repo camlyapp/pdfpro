@@ -4,7 +4,7 @@ export function Footer() {
   return (
     <footer className="w-full border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p className="text-sm text-muted-foreground text-center sm:text-left">
+        <p className="text-sm text-muted-foreground text-center sm:text-left sm:ml-4">
           &copy; {new Date().getFullYear()} PDFpro. All rights reserved.
         </p>
         <div className="flex items-center gap-6">
