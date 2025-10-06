@@ -17,21 +17,28 @@ interface HeaderProps {
   onToolSelect: (tool: string) => void;
 }
 
-const NavMenu = ({ trigger, items, onSelect }: { trigger: React.ReactNode, items: { id: string, name: string, icon: React.ReactNode }[], onSelect: (id: string) => void }) => {
-  const [open, setOpen] = useState(false);
+interface NavMenuProps {
+  trigger: React.ReactNode;
+  items: { id: string; name: string; icon: React.ReactNode }[];
+  onSelect: (id: string) => void;
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+}
 
+const NavMenu = ({ trigger, items, onSelect, isOpen, onOpen, onClose }: NavMenuProps) => {
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu open={isOpen} onOpenChange={(open) => (open ? onOpen() : onClose())}>
       <DropdownMenuTrigger asChild>
         <button
-          onMouseEnter={() => setOpen(true)}
+          onMouseEnter={onOpen}
           className="flex items-center gap-1 text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-primary focus:text-primary"
         >
           {trigger}
-          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent onMouseLeave={() => setOpen(false)} align="start">
+      <DropdownMenuContent onMouseLeave={onClose} align="start">
         {items.map(tool => (
           <DropdownMenuItem key={tool.id} onClick={() => onSelect(tool.id)}>
             {tool.icon}{tool.name}
@@ -46,6 +53,7 @@ const NavMenu = ({ trigger, items, onSelect }: { trigger: React.ReactNode, items
 export function Header({ onToolSelect }: HeaderProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -92,6 +100,12 @@ export function Header({ onToolSelect }: HeaderProps) {
     { id: 'unlock-pdf', name: 'Unlock PDF', icon: <Unlock className="mr-2 h-4 w-4" /> },
   ];
 
+  const allNavMenus = [
+    { id: 'convert-to', trigger: 'Convert to PDF', items: convertToPdfTools },
+    { id: 'convert-from', trigger: 'Convert from PDF', items: convertFromPdfTools },
+    { id: 'manage', trigger: 'Manage PDF', items: managePdfTools },
+  ];
+
   return (
     <header className={cn(
         "sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-transform duration-300",
@@ -107,10 +121,18 @@ export function Header({ onToolSelect }: HeaderProps) {
           </span>
         </Link>
         
-        <nav className="flex items-center gap-6 text-sm">
-          <NavMenu trigger="Convert to PDF" items={convertToPdfTools} onSelect={onToolSelect} />
-          <NavMenu trigger="Convert from PDF" items={convertFromPdfTools} onSelect={onToolSelect} />
-          <NavMenu trigger="Manage PDF" items={managePdfTools} onSelect={onToolSelect} />
+        <nav className="flex items-center gap-6 text-sm" onMouseLeave={() => setOpenMenu(null)}>
+          {allNavMenus.map(menu => (
+            <NavMenu
+              key={menu.id}
+              trigger={menu.trigger}
+              items={menu.items}
+              onSelect={onToolSelect}
+              isOpen={openMenu === menu.id}
+              onOpen={() => setOpenMenu(menu.id)}
+              onClose={() => setOpenMenu(null)}
+            />
+          ))}
         </nav>
 
         <div className="flex flex-1 items-center justify-end">
