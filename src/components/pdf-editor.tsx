@@ -1092,7 +1092,22 @@ export function PdfEditor({ selectedTool, onToolSelect }: PdfEditorProps) {
               ? await tempDoc.embedPng(pageInfo.imageBytes)
               : await tempDoc.embedJpg(pageInfo.imageBytes);
             
-            const jpgBytes = await image.asJpg({ quality: qualityValue });
+            let jpgBytes;
+            if (pageInfo.imageType === 'image/png') {
+              const canvas = document.createElement('canvas');
+              const context = canvas.getContext('2d');
+              const img = new (window as any).Image();
+              img.src = pageInfo.image!; // Assumes image data url is available
+              await new Promise(resolve => { img.onload = resolve; });
+              canvas.width = img.width;
+              canvas.height = img.height;
+              context?.drawImage(img, 0, 0);
+              const dataUrl = canvas.toDataURL('image/jpeg', qualityValue);
+              jpgBytes = await fetch(dataUrl).then(res => res.arrayBuffer());
+            } else {
+              jpgBytes = pageInfo.imageBytes; // For jpg, use original bytes as we can't recompress easily on client
+            }
+
             const jpgImage = await newPdf.embedJpg(jpgBytes);
             const { width, height } = jpgImage.scale(pageInfo.imageScale ?? 1);
             pageToAdd.setSize(width, height);
