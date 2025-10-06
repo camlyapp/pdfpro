@@ -11,7 +11,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { FileUp, Combine, Split, RotateCw, Shuffle, Droplet, Lock, Unlock, Gauge, FileJson, BrainCircuit, FileSpreadsheet, Presentation, FileText, Image as ImageIcon, ChevronDown } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { FileUp, Combine, Split, RotateCw, Shuffle, Droplet, Lock, Unlock, Gauge, FileJson, BrainCircuit, FileSpreadsheet, Presentation, FileText, Image as ImageIcon, ChevronDown, Menu } from 'lucide-react';
 
 interface HeaderProps {
   onToolSelect: (tool: string) => void;
@@ -121,7 +122,7 @@ export function Header({ onToolSelect }: HeaderProps) {
           </span>
         </Link>
         
-        <nav className="flex items-center gap-6 text-sm" onMouseLeave={() => setOpenMenu(null)}>
+        <nav className="flex items-center gap-6 text-sm flex-1" onMouseLeave={() => setOpenMenu(null)}>
           {allNavMenus.map(menu => (
             <NavMenu
               key={menu.id}
@@ -135,8 +136,11 @@ export function Header({ onToolSelect }: HeaderProps) {
           ))}
         </nav>
 
-        <div className="flex flex-1 items-center justify-end">
+        <div className="flex items-center justify-end gap-2">
           <ThemeToggle />
+          <Button variant="ghost" size="icon" className="hidden md:flex">
+            <Menu className="h-5 w-5" />
+          </Button>
         </div>
       </div>
     </header>
