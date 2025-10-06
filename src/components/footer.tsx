@@ -8,7 +8,7 @@ export function Footer() {
           &copy; {new Date().getFullYear()} PDFpro. All rights reserved.
         </p>
         <div className="flex items-center gap-6">
-          <Link href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+          <Link href="/terms" className="text-sm text-muted-foreground hover:text-primary transition-colors">
             Terms
           </Link>
           <Link href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
