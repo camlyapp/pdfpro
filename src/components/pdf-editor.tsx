@@ -1103,17 +1103,18 @@ export function PdfEditor({ selectedTool, onToolSelect }: PdfEditorProps) {
         } else {
           const source = pdfSources[pageInfo.pdfSourceIndex];
           if (source) {
-            const tempDoc = await PDFDocument.create();
-            const [copiedPage] = await tempDoc.copyPages(source.pdfjsDoc, [pageInfo.originalIndex]);
+            const pdfDoc = await PDFDocument.load(source.arrayBufferForPdfLib.slice(0), { password: source.password });
+            const [copiedPage] = await newPdf.copyPages(pdfDoc, [pageInfo.originalIndex]);
+            const pdfJsPage = await source.pdfjsDoc.getPage(pageInfo.originalIndex + 1);
 
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
-            const viewport = copiedPage.getViewport({ scale: 2 });
+            const viewport = pdfJsPage.getViewport({ scale: 2 });
             canvas.height = viewport.height;
             canvas.width = viewport.width;
 
             if (context) {
-              await copiedPage.render({ canvasContext: context, viewport }).promise;
+              await pdfJsPage.render({ canvasContext: context, viewport }).promise;
               const dataUrl = canvas.toDataURL('image/jpeg', qualityValue);
               const imageBytes = await fetch(dataUrl).then(res => res.arrayBuffer());
               
