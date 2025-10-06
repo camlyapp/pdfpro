@@ -1,8 +1,8 @@
 'use client';
 
+import React, { useState, useEffect } from 'react';
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from 'react';
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from '@/lib/utils';
 import {
@@ -11,7 +11,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { FileUp, Combine, Split, RotateCw, Shuffle, Droplet, Lock, Unlock, Gauge, FileJson, BrainCircuit, FileSpreadsheet, Presentation, FileText, Image as ImageIcon, ChevronDown, Menu } from 'lucide-react';
 
@@ -109,6 +110,8 @@ export function Header({ onToolSelect }: HeaderProps) {
     { id: 'manage', trigger: 'Manage PDF', items: managePdfTools },
   ];
   
+  const allToolsFlat = allNavMenus.flatMap(menu => menu.items);
+
   const handleToolSelectAndClose = (toolId: string) => {
     onToolSelect(toolId);
     setIsMobileMenuOpen(false);
@@ -146,43 +149,30 @@ export function Header({ onToolSelect }: HeaderProps) {
 
         <div className="flex flex-1 items-center justify-end gap-2">
           <ThemeToggle />
-          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-            <SheetTrigger asChild>
+          <Dialog open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            <DialogTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle Menu</span>
               </Button>
-            </SheetTrigger>
-            <SheetContent side="left">
-                <div className="p-4">
-                  <Link href="/" className="flex items-center space-x-2 mb-8" onClick={() => setIsMobileMenuOpen(false)}>
-                    <Image src="/camly.png" alt="PDFpro Logo" width={32} height={32} className="h-8 w-8" />
-                    <span className="font-bold">PDFpro</span>
-                  </Link>
-                  <div className="flex flex-col gap-4">
-                    {allNavMenus.map(menu => (
-                      <div key={menu.id}>
-                        <h3 className="font-semibold text-lg mb-2">{menu.trigger}</h3>
-                        <div className="flex flex-col gap-1">
-                          {menu.items.map(item => (
-                            <SheetClose asChild key={item.id}>
-                              <Button
-                                variant="ghost"
-                                className="justify-start"
-                                onClick={() => handleToolSelectAndClose(item.id)}
-                              >
-                                {item.icon}
-                                {item.name}
-                              </Button>
-                            </SheetClose>
-                          ))}
-                        </div>
-                      </div>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[90vw] max-w-[90vw] h-[80vh] flex flex-col rounded-lg bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+              <ScrollArea className="flex-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-6">
+                    {allToolsFlat.map(item => (
+                      <button
+                        key={item.id}
+                        className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg bg-card hover:bg-accent transition-colors text-center"
+                        onClick={() => handleToolSelectAndClose(item.id)}
+                      >
+                        {React.cloneElement(item.icon as React.ReactElement, { className: "h-6 w-6 text-primary" })}
+                        <span className="text-sm font-medium">{item.name}</span>
+                      </button>
                     ))}
                   </div>
-                </div>
-            </SheetContent>
-          </Sheet>
+              </ScrollArea>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </header>
