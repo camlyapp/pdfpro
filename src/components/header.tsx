@@ -6,21 +6,42 @@ import { useState, useEffect } from 'react';
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from '@/lib/utils';
 import {
-  Menubar,
-  MenubarContent,
-  MenubarItem,
-  MenubarMenu,
-  MenubarSeparator,
-  MenubarSub,
-  MenubarSubContent,
-  MenubarSubTrigger,
-  MenubarTrigger,
-} from "@/components/ui/menubar"
-import { FileUp, Combine, Split, RotateCw, Shuffle, Droplet, Lock, Unlock, Gauge, FileJson, BrainCircuit, FileSpreadsheet, Presentation, FileText, Image as ImageIcon } from 'lucide-react';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { FileUp, Combine, Split, RotateCw, Shuffle, Droplet, Lock, Unlock, Gauge, FileJson, BrainCircuit, FileSpreadsheet, Presentation, FileText, Image as ImageIcon, ChevronDown } from 'lucide-react';
 
 interface HeaderProps {
   onToolSelect: (tool: string) => void;
 }
+
+const NavMenu = ({ trigger, items, onSelect }: { trigger: React.ReactNode, items: { id: string, name: string, icon: React.ReactNode }[], onSelect: (id: string) => void }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <button
+          onMouseEnter={() => setOpen(true)}
+          className="flex items-center gap-1 text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-primary focus:text-primary"
+        >
+          {trigger}
+          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent onMouseLeave={() => setOpen(false)} align="start">
+        {items.map(tool => (
+          <DropdownMenuItem key={tool.id} onClick={() => onSelect(tool.id)}>
+            {tool.icon}{tool.name}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 
 export function Header({ onToolSelect }: HeaderProps) {
   const [isVisible, setIsVisible] = useState(true);
@@ -86,38 +107,11 @@ export function Header({ onToolSelect }: HeaderProps) {
           </span>
         </Link>
         
-        <Menubar className="border-none shadow-none bg-transparent">
-          <MenubarMenu>
-            <MenubarTrigger>Convert to PDF</MenubarTrigger>
-            <MenubarContent>
-              {convertToPdfTools.map(tool => (
-                <MenubarItem key={tool.id} onClick={() => onToolSelect(tool.id)}>
-                  {tool.icon}{tool.name}
-                </MenubarItem>
-              ))}
-            </MenubarContent>
-          </MenubarMenu>
-          <MenubarMenu>
-            <MenubarTrigger>Convert from PDF</MenubarTrigger>
-            <MenubarContent>
-              {convertFromPdfTools.map(tool => (
-                <MenubarItem key={tool.id} onClick={() => onToolSelect(tool.id)}>
-                  {tool.icon}{tool.name}
-                </MenubarItem>
-              ))}
-            </MenubarContent>
-          </MenubarMenu>
-          <MenubarMenu>
-            <MenubarTrigger>Manage PDF</MenubarTrigger>
-            <MenubarContent>
-              {managePdfTools.map(tool => (
-                <MenubarItem key={tool.id} onClick={() => onToolSelect(tool.id)}>
-                  {tool.icon}{tool.name}
-                </MenubarItem>
-              ))}
-            </MenubarContent>
-          </MenubarMenu>
-        </Menubar>
+        <nav className="flex items-center gap-6 text-sm">
+          <NavMenu trigger="Convert to PDF" items={convertToPdfTools} onSelect={onToolSelect} />
+          <NavMenu trigger="Convert from PDF" items={convertFromPdfTools} onSelect={onToolSelect} />
+          <NavMenu trigger="Manage PDF" items={managePdfTools} onSelect={onToolSelect} />
+        </nav>
 
         <div className="flex flex-1 items-center justify-end">
           <ThemeToggle />
