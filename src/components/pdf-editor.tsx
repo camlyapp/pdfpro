@@ -1803,6 +1803,13 @@ const handleDownloadAsWord = async () => {
           keywords: ['compress', 'resize', 'reduce size', 'optimize'],
       },
       {
+          id: 'crop-pdf',
+          title: 'Crop PDF',
+          icon: <Crop />,
+          onClick: () => fileInputRef.current?.click(),
+          keywords: ['crop', 'cut', 'trim'],
+      },
+      {
           id: 'image-to-svg',
           title: 'Image to SVG',
           icon: <FileJson />,

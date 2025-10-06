@@ -14,7 +14,7 @@ import {
 import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { FileUp, Combine, Split, RotateCw, Shuffle, Droplet, Lock, Unlock, Gauge, FileJson, BrainCircuit, FileSpreadsheet, Presentation, FileText, Image as ImageIcon, ChevronDown, Menu } from 'lucide-react';
+import { FileUp, Combine, Split, RotateCw, Shuffle, Droplet, Lock, Unlock, Gauge, FileJson, BrainCircuit, FileSpreadsheet, Presentation, FileText, Image as ImageIcon, ChevronDown, Menu, Crop } from 'lucide-react';
 
 interface HeaderProps {
   onToolSelect: (tool: string) => void;
@@ -102,6 +102,7 @@ export function Header({ onToolSelect }: HeaderProps) {
     { id: 'watermark-pdf', name: 'Add Watermark', icon: <Droplet className="mr-2 h-4 w-4" /> },
     { id: 'protect-pdf', name: 'Protect PDF', icon: <Lock className="mr-2 h-4 w-4" /> },
     { id: 'unlock-pdf', name: 'Unlock PDF', icon: <Unlock className="mr-2 h-4 w-4" /> },
+    { id: 'crop-pdf', name: 'Crop PDF', icon: <Crop className="mr-2 h-4 w-4" /> },
   ];
 
   const allNavMenus = [

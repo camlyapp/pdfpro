@@ -51,7 +51,7 @@ export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible,
   const ref = useRef<HTMLDivElement>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [isCropDialogOpen, setIsCropDialogOpen] = useState(false);
-  const [crop, setCrop] = useState({ x: 10, y: 10, width: 80, height: 80 });
+  const [crop, setCrop] = useState({ x: 0, y: 0, width: 100, height: 100 });
   const cropImageRef = useRef<HTMLImageElement>(null);
   const cropBoxRef = useRef<HTMLDivElement>(null);
   
