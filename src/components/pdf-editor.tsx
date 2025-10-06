@@ -83,16 +83,16 @@ const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode, titl
     </div>
 );
 
-const ToolCard = ({ icon, title, onClick, disabled = false, isFeatured = false }: { icon: React.ReactNode, title: string, onClick: () => void, disabled?: boolean, isFeatured?: boolean}) => (
+const ToolCard = ({ icon, title, onClick, disabled = false }: { icon: React.ReactNode, title: string, onClick: () => void, disabled?: boolean }) => (
     <button
         onClick={onClick}
         disabled={disabled}
-        className={`group flex flex-col items-center justify-center p-4 bg-card rounded-lg shadow-md hover:shadow-primary/20 transition-all aspect-square border hover:border-primary disabled:opacity-50 disabled:pointer-events-none ${isFeatured ? 'col-span-2 row-span-2 bg-primary/5' : ''}`}
+        className="group flex flex-col items-center justify-center p-4 bg-card rounded-lg shadow-md hover:shadow-primary/20 transition-all aspect-square border hover:border-primary disabled:opacity-50 disabled:pointer-events-none"
     >
-        <div className={`p-3 bg-primary/10 rounded-full mb-3 transition-transform duration-200 group-hover:scale-110 ${isFeatured ? 'p-6' : ''}`}>
-            {React.cloneElement(icon as React.ReactElement, { className: isFeatured ? 'h-12 w-12 text-primary' : 'h-8 w-8 text-primary' })}
+        <div className="p-3 bg-primary/10 rounded-full mb-3 transition-transform duration-200 group-hover:scale-110">
+            {React.cloneElement(icon as React.ReactElement, { className: 'h-8 w-8 text-primary' })}
         </div>
-        <h3 className={`${isFeatured ? 'text-xl' : 'text-base'} font-semibold text-center`}>{title}</h3>
+        <h3 className="text-base font-semibold text-center">{title}</h3>
     </button>
 );
 
@@ -1572,7 +1572,6 @@ const handleDownloadAsWord = async () => {
           icon: <FileUp />,
           onClick: () => fileInputRef.current?.click(),
           keywords: ['upload', 'pdf', 'open', 'select', 'file'],
-          isFeatured: true,
       },
       {
           id: 'scan-to-pdf',
@@ -1770,7 +1769,6 @@ const handleDownloadAsWord = async () => {
                                 title={tool.title}
                                 onClick={tool.onClick}
                                 disabled={tool.disabled}
-                                isFeatured={tool.isFeatured && searchQuery === ''}
                             />
                         ))}
                     </div>
