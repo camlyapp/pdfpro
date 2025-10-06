@@ -390,24 +390,26 @@ export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible,
             <DialogHeader>
               <DialogTitle>Crop Page {pageNumber}</DialogTitle>
             </DialogHeader>
-            <div className="relative w-full aspect-[210/297] bg-muted overflow-hidden" style={{ maxHeight: '70vh' }}>
-              <Image ref={cropImageRef} src={page.image || ''} alt={`Page ${pageNumber}`} fill className="object-contain" />
-              <div
-                ref={cropBoxRef}
-                className="absolute border-2 border-primary bg-primary/20 cursor-move"
-                style={{
-                  left: `${crop.x}%`,
-                  top: `${crop.y}%`,
-                  width: `${crop.width}%`,
-                  height: `${crop.height}%`,
-                }}
-                onMouseDown={(e) => handleCropBoxDrag(e, 'move')}
-              >
-                <div className="absolute -top-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary cursor-nwse-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'top-left')}></div>
-                <div className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary cursor-nesw-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'top-right')}></div>
-                <div className="absolute -bottom-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary cursor-nesw-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'bottom-left')}></div>
-                <div className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary cursor-nwse-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'bottom-right')}></div>
-              </div>
+            <div className="flex items-center justify-center w-full bg-muted" style={{ maxHeight: '70vh' }}>
+                <div className="relative">
+                  <Image ref={cropImageRef} src={page.image || ''} alt={`Page ${pageNumber}`} width={800} height={1131} className="max-h-[65vh] w-auto h-auto object-contain" />
+                  <div
+                    ref={cropBoxRef}
+                    className="absolute border-2 border-primary bg-primary/20 cursor-move"
+                    style={{
+                      left: `${crop.x}%`,
+                      top: `${crop.y}%`,
+                      width: `${crop.width}%`,
+                      height: `${crop.height}%`,
+                    }}
+                    onMouseDown={(e) => handleCropBoxDrag(e, 'move')}
+                  >
+                    <div className="absolute -top-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary cursor-nwse-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'top-left')}></div>
+                    <div className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary cursor-nesw-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'top-right')}></div>
+                    <div className="absolute -bottom-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary cursor-nesw-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'bottom-left')}></div>
+                    <div className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary cursor-nwse-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'bottom-right')}></div>
+                  </div>
+                </div>
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setIsCropDialogOpen(false)}>Cancel</Button>
