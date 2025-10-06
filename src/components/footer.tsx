@@ -11,7 +11,7 @@ export function Footer() {
           <Link href="/terms" className="text-sm text-muted-foreground hover:text-primary transition-colors">
             Terms
           </Link>
-          <Link href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+          <Link href="/privacy" className="text-sm text-muted-foreground hover:text-primary transition-colors">
             Privacy
           </Link>
         </div>
