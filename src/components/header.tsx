@@ -96,7 +96,7 @@ export function Header({ onToolSelect }: HeaderProps) {
   const managePdfTools = [
     { id: 'merge-pdf', name: 'Merge PDF', icon: <Combine className="mr-2 h-4 w-4" /> },
     { id: 'split-pdf', name: 'Split PDF', icon: <Split className="mr-2 h-4 w-4" /> },
-    { id: 'compress-pdf', name: 'Compress PDF', icon: <Gauge className="mr-2 h-4 w-4" /> },
+    { id: 'increase-quality-pdf', name: 'Increase PDF Quality', icon: <Gauge className="mr-2 h-4 w-4" /> },
     { id: 'rotate-pdf', name: 'Rotate PDF', icon: <RotateCw className="mr-2 h-4 w-4" /> },
     { id: 'reorder-pdf', name: 'Reorder Pages', icon: <Shuffle className="mr-2 h-4 w-4" /> },
     { id: 'watermark-pdf', name: 'Add Watermark', icon: <Droplet className="mr-2 h-4 w-4" /> },

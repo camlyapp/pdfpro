@@ -1134,7 +1134,7 @@ export function PdfEditor({ selectedTool, onToolSelect }: PdfEditorProps) {
   
     } catch (error: any) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Failed to Compress PDF', description: error.message || 'An error occurred during compression.' });
+      toast({ variant: 'destructive', title: 'Failed to Increase Quality', description: error.message || 'An error occurred during quality increase.' });
     } finally {
       setIsCompressing(false);
     }
@@ -1166,7 +1166,7 @@ export function PdfEditor({ selectedTool, onToolSelect }: PdfEditorProps) {
         if (compressedPdfBytes) {
           pdfBytes = compressedPdfBytes;
         } else {
-            toast({ variant: 'destructive', title: 'Not Compressed', description: 'Please wait for compression to finish or adjust settings.' });
+            toast({ variant: 'destructive', title: 'Not Processed', description: 'Please wait for quality processing to finish or adjust settings.' });
             setIsDownloading(false);
             return;
         }
@@ -1795,13 +1795,13 @@ const handleDownloadAsWord = async () => {
           keywords: ['unlock', 'decrypt', 'remove password', 'unsecure'],
       },
       {
-          id: 'compress-pdf',
-          title: 'Compress PDF',
+          id: 'increase-quality-pdf',
+          title: 'Increase PDF Quality',
           icon: <Gauge />,
           onClick: () => {
               fileInputRef.current?.click();
           },
-          keywords: ['compress', 'resize', 'reduce size', 'optimize'],
+          keywords: ['increase quality', 'optimize', 'quality', 'compress', 'resize', 'reduce size'],
       },
       {
           id: 'crop-pdf',
@@ -1976,7 +1976,7 @@ const handleDownloadAsWord = async () => {
                       <Tabs defaultValue="format" className="w-full">
                           <TabsList className="grid w-full grid-cols-4">
                               <TabsTrigger value="format">Format</TabsTrigger>
-                              <TabsTrigger value="compress" disabled={downloadFormat !== 'pdf'}>Compress</TabsTrigger>
+                              <TabsTrigger value="compress" disabled={downloadFormat !== 'pdf'}>Quality</TabsTrigger>
                               <TabsTrigger value="watermark" disabled={downloadFormat !== 'pdf'}>Watermark</TabsTrigger>
                               <TabsTrigger value="encrypt" disabled={downloadFormat !== 'pdf'}>Encrypt</TabsTrigger>
                           </TabsList>
@@ -2015,9 +2015,9 @@ const handleDownloadAsWord = async () => {
                               <div className="py-4 space-y-4">
                                   <div className="flex items-center justify-between space-x-2">
                                       <Label htmlFor="compression-switch" className="flex flex-col space-y-1">
-                                          <span>Enable Compression</span>
+                                          <span>Increase Image Quality</span>
                                           <span className="font-normal leading-snug text-muted-foreground text-xs">
-                                              Reduce file size by compressing images. May reduce quality.
+                                              Enhance the quality of images in your PDF. May increase file size.
                                           </span>
                                       </Label>
                                       <Switch id="compression-switch" checked={enableCompression} onCheckedChange={setEnableCompression} />
@@ -2026,7 +2026,7 @@ const handleDownloadAsWord = async () => {
                                     <div className='space-y-4 pt-2'>
                                       <div className="space-y-2">
                                           <div className='flex justify-between items-baseline'>
-                                              <Label htmlFor="quality-slider">Compression Quality</Label>
+                                              <Label htmlFor="quality-slider">Image Quality</Label>
                                               <span className="text-sm font-medium text-muted-foreground">{compressionQuality}%</span>
                                           </div>
                                           <Slider

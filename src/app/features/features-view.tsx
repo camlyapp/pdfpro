@@ -12,7 +12,7 @@ const featureSections = [
     features: [
       { id: 'merge-pdf', name: 'Merge PDF', icon: <Combine className="h-8 w-8 text-primary" />, description: 'Combine multiple PDF files into one single document effortlessly.' },
       { id: 'split-pdf', name: 'Split PDF', icon: <Split className="h-8 w-8 text-primary" />, description: 'Extract one or more pages from your PDF or save each page as a separate PDF file.' },
-      { id: 'compress-pdf', name: 'Compress PDF', icon: <Gauge className="h-8 w-8 text-primary" />, description: 'Reduce the file size of your PDF while maintaining optimal quality for easy sharing.' },
+      { id: 'increase-quality-pdf', name: 'Increase PDF Quality', icon: <Gauge className="h-8 w-8 text-primary" />, description: 'Reduce the file size of your PDF while maintaining optimal quality for easy sharing.' },
       { id: 'rotate-pdf', name: 'Rotate PDF', icon: <RotateCw className="h-8 w-8 text-primary" />, description: 'Rotate your PDF pages to the correct orientation. Rotate multiple pages at once.' },
       { id: 'reorder-pdf', name: 'Reorder Pages', icon: <Shuffle className="h-8 w-8 text-primary" />, description: 'Easily rearrange the order of pages in your PDF by dragging and dropping page thumbnails.' },
     ]

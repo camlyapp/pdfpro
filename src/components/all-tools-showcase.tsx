@@ -11,7 +11,7 @@ const featureSections = [
     features: [
       { id: 'merge-pdf', name: 'Merge PDF', icon: <Combine className="h-6 w-6 text-primary" /> },
       { id: 'split-pdf', name: 'Split PDF', icon: <Split className="h-6 w-6 text-primary" /> },
-      { id: 'compress-pdf', name: 'Compress PDF', icon: <Gauge className="h-6 w-6 text-primary" /> },
+      { id: 'increase-quality-pdf', name: 'Increase PDF Quality', icon: <Gauge className="h-6 w-6 text-primary" /> },
       { id: 'rotate-pdf', name: 'Rotate PDF', icon: <RotateCw className="h-6 w-6 text-primary" /> },
       { id: 'reorder-pdf', name: 'Reorder Pages', icon: <Shuffle className="h-6 w-6 text-primary" /> },
     ]
