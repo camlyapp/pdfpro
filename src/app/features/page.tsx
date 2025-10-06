@@ -18,7 +18,11 @@ export const metadata: Metadata = {
     'PDF to Word',
     'PDF to Excel',
     'PDF to PowerPoint',
+    'PDF to image',
     'image to PDF',
+    'Word to PDF',
+    'Excel to PDF',
+    'PowerPoint to PDF',
   ],
 };
 
