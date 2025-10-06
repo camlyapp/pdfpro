@@ -5,6 +5,7 @@ import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { PdfEditor } from '@/components/pdf-editor';
 import { HomePageFeatures } from '@/components/homepage-features';
+import { AllToolsShowcase } from '@/components/all-tools-showcase';
 
 export default function Home() {
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
@@ -18,6 +19,7 @@ export default function Home() {
         </div>
       </main>
       <HomePageFeatures />
+      <AllToolsShowcase />
       <Footer />
     </div>
   );
