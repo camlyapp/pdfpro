@@ -34,8 +34,11 @@ export const metadata: Metadata = {
     'online PDF editor',
     'free PDF editor',
   ],
-  authors: [{ name: 'PDFpro Team' }],
+  authors: [{ name: 'PDFpro Team', url: siteConfig.url }],
   creator: 'PDFpro Team',
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -56,9 +59,28 @@ export const metadata: Metadata = {
     title: siteConfig.name,
     description: siteConfig.description,
     images: [siteConfig.ogImage],
+    creator: '@pdfpro',
   },
   icons: {
     icon: '/camly.png',
+    shortcut: '/camly.png',
+    apple: '/camly.png',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
   },
 };
 
@@ -78,6 +100,7 @@ const jsonLd = {
     price: '0',
     priceCurrency: 'USD',
   },
+  url: siteConfig.url,
 };
 
 
