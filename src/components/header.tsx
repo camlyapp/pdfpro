@@ -134,6 +134,9 @@ export function Header({ onToolSelect }: HeaderProps) {
         </Link>
         
         <nav className="hidden md:flex items-center gap-6 text-sm flex-1" onMouseLeave={() => setOpenMenu(null)}>
+          <Link href="/features" className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
+            Features
+          </Link>
           {allNavMenus.map(menu => (
             <NavMenu
               key={menu.id}
