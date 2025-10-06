@@ -113,7 +113,7 @@ export function Header({ onToolSelect }: HeaderProps) {
           '-translate-y-full': !isVisible
         }
       )}>
-      <div className="container flex h-16 items-center">
+      <div className="container flex h-16 items-center ml-4">
         <Link href="/" className="mr-6 flex items-center space-x-2">
           <Image src="/camly.png" alt="PDFpro Logo" width={32} height={32} className="h-8 w-8" />
           <span className="font-bold sm:inline-block">
