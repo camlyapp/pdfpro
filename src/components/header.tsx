@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { FileUp, Combine, Split, RotateCw, Shuffle, Droplet, Lock, Unlock, Gauge, FileJson, BrainCircuit, FileSpreadsheet, Presentation, FileText, Image as ImageIcon, ChevronDown, Menu } from 'lucide-react';
 
@@ -55,6 +56,7 @@ export function Header({ onToolSelect }: HeaderProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -106,6 +108,12 @@ export function Header({ onToolSelect }: HeaderProps) {
     { id: 'convert-from', trigger: 'Convert from PDF', items: convertFromPdfTools },
     { id: 'manage', trigger: 'Manage PDF', items: managePdfTools },
   ];
+  
+  const handleToolSelectAndClose = (toolId: string) => {
+    onToolSelect(toolId);
+    setIsMobileMenuOpen(false);
+  };
+
 
   return (
     <header className={cn(
@@ -114,7 +122,7 @@ export function Header({ onToolSelect }: HeaderProps) {
           '-translate-y-full': !isVisible
         }
       )}>
-      <div className="container flex h-16 items-center ml-4">
+      <div className="container flex h-16 items-center px-4 sm:px-6">
         <Link href="/" className="mr-6 flex items-center space-x-2">
           <Image src="/camly.png" alt="PDFpro Logo" width={32} height={32} className="h-8 w-8" />
           <span className="font-bold sm:inline-block">
@@ -122,7 +130,7 @@ export function Header({ onToolSelect }: HeaderProps) {
           </span>
         </Link>
         
-        <nav className="flex items-center gap-6 text-sm flex-1" onMouseLeave={() => setOpenMenu(null)}>
+        <nav className="hidden md:flex items-center gap-6 text-sm flex-1" onMouseLeave={() => setOpenMenu(null)}>
           {allNavMenus.map(menu => (
             <NavMenu
               key={menu.id}
@@ -136,11 +144,45 @@ export function Header({ onToolSelect }: HeaderProps) {
           ))}
         </nav>
 
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex flex-1 items-center justify-end gap-2">
           <ThemeToggle />
-          <Button variant="ghost" size="icon" className="hidden md:flex">
-            <Menu className="h-5 w-5" />
-          </Button>
+          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle Menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left">
+                <div className="p-4">
+                  <Link href="/" className="flex items-center space-x-2 mb-8" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Image src="/camly.png" alt="PDFpro Logo" width={32} height={32} className="h-8 w-8" />
+                    <span className="font-bold">PDFpro</span>
+                  </Link>
+                  <div className="flex flex-col gap-4">
+                    {allNavMenus.map(menu => (
+                      <div key={menu.id}>
+                        <h3 className="font-semibold text-lg mb-2">{menu.trigger}</h3>
+                        <div className="flex flex-col gap-1">
+                          {menu.items.map(item => (
+                            <SheetClose asChild key={item.id}>
+                              <Button
+                                variant="ghost"
+                                className="justify-start"
+                                onClick={() => handleToolSelectAndClose(item.id)}
+                              >
+                                {item.icon}
+                                {item.name}
+                              </Button>
+                            </SheetClose>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </header>
