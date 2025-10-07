@@ -143,20 +143,23 @@ export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible,
     window.addEventListener('mouseup', handleMouseUp);
   };
 
-  const handleCropBoxDrag = (e: React.MouseEvent, corner: string) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleCropBoxDrag = (startEvent: React.MouseEvent | React.TouchEvent, corner: string) => {
+    startEvent.preventDefault();
+    startEvent.stopPropagation();
 
     if (!cropImageRef.current) return;
     const imgRect = cropImageRef.current.getBoundingClientRect();
     
-    const startX = e.clientX;
-    const startY = e.clientY;
+    const isTouchEvent = 'touches' in startEvent;
+    const startX = isTouchEvent ? (startEvent as React.TouchEvent).touches[0].clientX : (startEvent as React.MouseEvent).clientX;
+    const startY = isTouchEvent ? (startEvent as React.TouchEvent).touches[0].clientY : (startEvent as React.MouseEvent).clientY;
     const startCrop = { ...crop };
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const dx = (moveEvent.clientX - startX) / imgRect.width * 100;
-      const dy = (moveEvent.clientY - startY) / imgRect.height * 100;
+    const handleMove = (moveEvent: MouseEvent | TouchEvent) => {
+      const moveX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      const moveY = 'touches' in moveEvent ? moveEvent.touches[0].clientY : moveEvent.clientY;
+      const dx = (moveX - startX) / imgRect.width * 100;
+      const dy = (moveY - startY) / imgRect.height * 100;
       
       let newCrop = { ...startCrop };
 
@@ -189,13 +192,23 @@ export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible,
       setCrop(newCrop);
     };
 
-    const handleMouseUp = () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+    const handleEnd = () => {
+      if (isTouchEvent) {
+        window.removeEventListener('touchmove', handleMove);
+        window.removeEventListener('touchend', handleEnd);
+      } else {
+        window.removeEventListener('mousemove', handleMove);
+        window.removeEventListener('mouseup', handleEnd);
+      }
     };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    
+    if (isTouchEvent) {
+      window.addEventListener('touchmove', handleMove);
+      window.addEventListener('touchend', handleEnd);
+    } else {
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleEnd);
+    }
   };
 
   const handleApplyCrop = () => {
@@ -403,11 +416,12 @@ export function PagePreview({ page, pageNumber, isSelected, onDelete, onVisible,
                       height: `${crop.height}%`,
                     }}
                     onMouseDown={(e) => handleCropBoxDrag(e, 'move')}
+                    onTouchStart={(e) => handleCropBoxDrag(e, 'move')}
                   >
-                    <div className="absolute -top-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary cursor-nwse-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'top-left')}></div>
-                    <div className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary cursor-nesw-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'top-right')}></div>
-                    <div className="absolute -bottom-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary cursor-nesw-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'bottom-left')}></div>
-                    <div className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary cursor-nwse-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'bottom-right')}></div>
+                    <div className="absolute -top-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary cursor-nwse-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'top-left')} onTouchStart={(e) => handleCropBoxDrag(e, 'top-left')}></div>
+                    <div className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary cursor-nesw-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'top-right')} onTouchStart={(e) => handleCropBoxDrag(e, 'top-right')}></div>
+                    <div className="absolute -bottom-1.5 -left-1.5 h-3 w-3 rounded-full bg-primary cursor-nesw-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'bottom-left')} onTouchStart={(e) => handleCropBoxDrag(e, 'bottom-left')}></div>
+                    <div className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-full bg-primary cursor-nwse-resize" onMouseDown={(e) => handleCropBoxDrag(e, 'bottom-right')} onTouchStart={(e) => handleCropBoxDrag(e, 'bottom-right')}></div>
                   </div>
                 </div>
             </div>
